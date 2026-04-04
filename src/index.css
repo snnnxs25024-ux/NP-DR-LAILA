@@ -1,0 +1,102 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  
+  --color-brand-red: #E11D48;
+  --color-brand-red-hover: #BE123C;
+  --color-bg-light: #FFFFFF;
+  --color-card-light: #F8FAFC;
+  --color-border-light: #E2E8F0;
+  
+  /* Pastel Accents */
+  --color-pastel-blue: #E0F2FE;
+  --color-pastel-green: #DCFCE7;
+  --color-pastel-red: #FEE2E2;
+  --color-pastel-orange: #FFEDD5;
+  --color-pastel-indigo: #E0E7FF;
+}
+
+@layer base {
+  body {
+    @apply bg-white text-slate-900 antialiased selection:bg-brand-red/10 selection:text-brand-red;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-white/70 backdrop-blur-xl border border-slate-200/50;
+  }
+  
+  .glass-dark {
+    @apply bg-white/80 backdrop-blur-md border border-slate-200/60 shadow-sm;
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-500;
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 hover:translate-y-[-4px] hover:shadow-xl hover:shadow-slate-200/50 hover:border-brand-red/20;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-slate-200 rounded-full hover:bg-slate-300 transition-colors;
+  }
+}
+
+@layer utilities {
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+    
+    .print-only {
+      display: block !important;
+    }
+
+    body {
+      background: white !important;
+      color: black !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+
+    .print-container {
+      width: 100% !important;
+      max-width: none !important;
+      padding: 20px !important;
+      margin: 0 !important;
+      border: none !important;
+      box-shadow: none !important;
+      overflow: visible !important;
+    }
+
+    .print-break-inside-avoid {
+      break-inside: avoid;
+    }
+
+    .print-grid-cols-1 {
+      grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+    }
+
+    /* Ensure charts are visible */
+    .recharts-responsive-container {
+      width: 100% !important;
+      height: 300px !important;
+    }
+  }
+
+  .print-only {
+    display: none;
+  }
+}
+
+

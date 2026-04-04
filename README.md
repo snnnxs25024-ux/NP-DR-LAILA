@@ -1,11 +1,19 @@
-<div align="center">
+# Nutrition Performance Dashboard By DR LAILA
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+This project is a React-based athlete performance dashboard.
 
-  <h1>Built with AI Studio</h2>
+## Deployment to Vercel
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+1.  **Connect your repository** (GitHub, GitLab, or Bitbucket) to Vercel.
+2.  **Configure Build Settings**:
+    *   Framework Preset: `Vite`
+    *   Build Command: `npm run build`
+    *   Output Directory: `dist`
+3.  **Environment Variables**:
+    *   Add `GEMINI_API_KEY` to your Vercel project settings.
+    *   Add `VITE_APP_URL` if needed for client-side use.
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+## Local Development
 
-</div>
+1.  `npm install`
+2.  `npm run dev`
