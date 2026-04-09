@@ -8,8 +8,7 @@ import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import { AthleteDirectory } from './pages/AthleteDirectory';
 import { AthleteProfile } from './pages/AthleteProfile';
-import { NutritionCenter } from './pages/NutritionCenter';
-import { Analytics } from './pages/Analytics';
+import { Assessments } from './pages/Assessments';
 
 export default function App() {
   const [currentView, setCurrentView] = useState('dashboard');
@@ -31,25 +30,13 @@ export default function App() {
         return <Dashboard />;
       case 'directory':
         return <AthleteDirectory onSelectAthlete={handleSelectAthlete} />;
+      case 'assessments':
+        return <Assessments />;
       case 'profile':
         if (selectedAthleteId) {
           return <AthleteProfile athleteId={selectedAthleteId} onBack={handleBackToDirectory} />;
         }
         return <AthleteDirectory onSelectAthlete={handleSelectAthlete} />;
-      case 'nutrition':
-        return <NutritionCenter />;
-      case 'reports':
-        return <Analytics />;
-      case 'health':
-      case 'injury':
-        return (
-          <div className="flex items-center justify-center h-full text-slate-500">
-            <div className="text-center">
-              <h2 className="text-xl font-semibold text-slate-300 mb-2">Coming Soon</h2>
-              <p>This module is currently under development.</p>
-            </div>
-          </div>
-        );
       default:
         return <Dashboard />;
     }

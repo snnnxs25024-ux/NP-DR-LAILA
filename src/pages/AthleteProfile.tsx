@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Calendar, Activity, Scale, Droplets, Moon, HeartPulse, Utensils, Stethoscope, ChevronRight, Share2, Download, Printer, ArrowRight, AlertTriangle, CheckCircle2, TrendingUp, ArrowUpRight, ArrowDownRight, X, Plus, User, MapPin, Ruler, Percent, Flame, Zap, Apple, Syringe, MessageCircle, Mail, Instagram, Droplet, Hand, CalendarDays, Shirt, PhoneCall, Info, Edit2 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
-import { athletes, weightHistory, nutritionBalance } from '../data/mockData';
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft, Calendar, Activity, Scale, ChevronRight, Share2, Download, Printer, ArrowUpRight, ArrowDownRight, X, Plus, User, MapPin, Ruler, Zap, Droplet, Hand, CalendarDays, Info, Edit2, HeartPulse, Flame, Apple, Target, History, Table, Trash2, Stethoscope, MessageSquareQuote, Filter, CheckCircle2, AlertCircle } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { athletes, weightHistory, nutritionBalance, AssessmentEntry, NoteEntry, InjuryEntry } from '../data/mockData';
 import { cn } from '../lib/utils';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { downloadCSV, triggerPrint } from '../lib/exportUtils';
+import { generateAssessmentPDF, shareToWhatsApp, captureElementAsJPG } from '../lib/reportUtils';
+import { format, isWithinInterval, startOfMonth, endOfMonth, parse } from 'date-fns';
+import { id } from 'date-fns/locale';
 
 interface AthleteProfileProps {
   athleteId: string;
@@ -14,61 +17,121 @@ interface AthleteProfileProps {
 export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
   const [isInputModalOpen, setIsInputModalOpen] = useState(false);
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  
+  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+  const [editingNote, setEditingNote] = useState<NoteEntry | null>(null);
+  
+  const [isInjuryModalOpen, setIsInjuryModalOpen] = useState(false);
+  const [editingInjury, setEditingInjury] = useState<InjuryEntry | null>(null);
+  
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [reportRange, setReportRange] = useState<'currentMonth' | 'custom'>('currentMonth');
+  const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'success'>('idle');
+  
+  const [activeTab, setActiveTab] = useState<'overview' | 'assessment'>('overview');
+  const [activeFilter, setActiveFilter] = useState<'All' | 'Note' | 'Injury'>('All');
+
+  useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsInputModalOpen(false);
+        setIsEditProfileModalOpen(false);
+        setIsHistoryModalOpen(false);
+        setIsNoteModalOpen(false);
+        setIsInjuryModalOpen(false);
+        setIsShareModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => {
+      window.removeEventListener('keydown', handleEsc);
+    };
+  }, []);
+
   const athleteData = athletes.find(a => a.id === athleteId);
   
   // Local state for the athlete's current data to allow real-time updates
   const [athlete, setAthlete] = useState(athleteData);
   const [nutrition, setNutrition] = useState(nutritionBalance);
 
-  if (!athlete) return <div>Athlete not found</div>;
+  if (!athlete) return <div className="p-8 text-center font-bold text-slate-500">Atlet tidak ditemukan</div>;
 
-  // Mock data for "Kemarin"
+  // Data untuk "Kemarin" (Mock)
   const yesterdayData = {
     weight: (athlete.weight - 0.4).toFixed(1),
-    hydration: athlete.hydrationLevel + 2,
-    sleep: athlete.sleepHours - 1.5,
-    rpe: athlete.rpe + 1
   };
 
   const handleUpdateData = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
-    // Update Biometrics
+    const weight = Number(formData.get('weight'));
+    const bfInBody = Number(formData.get('bfInBody'));
+    const bicep = Number(formData.get('bicep'));
+    const tricep = Number(formData.get('tricep'));
+    const subscapula = Number(formData.get('subscapula'));
+    const abdominal = Number(formData.get('abdominal'));
+    
+    // Simple calculation for total and bf% (this is mock logic)
+    const total = bicep + tricep + subscapula + abdominal;
+    const bfCaliper = Number(((total * 0.25) + 2).toFixed(1)); // Consistent formula
+    const fm = Number((weight * (bfCaliper / 100)).toFixed(2));
+    const lbm = Number((weight - fm).toFixed(2));
+
+    const newEntry: AssessmentEntry = {
+      date: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' }).toUpperCase(),
+      bfInBody,
+      bicep,
+      tricep,
+      subscapula,
+      abdominal,
+      total,
+      bfCaliper,
+      weight,
+      lbm,
+      fm
+    };
+
     const updatedAthlete = {
       ...athlete,
-      weight: Number(formData.get('weight')),
-      hydrationLevel: Number(formData.get('hydration')),
-      sleepHours: Number(formData.get('sleep')),
-      rpe: Number(formData.get('rpe')),
+      weight,
+      bodyFatInBody: bfInBody,
+      bodyFatCaliper: bfCaliper,
+      assessmentHistory: [newEntry, ...athlete.assessmentHistory]
     };
     
-    // Update Nutrition Chart Data
-    const updatedNutrition = nutrition.map(item => {
-      const newValue = Number(formData.get(`nutri_${item.subject.toLowerCase()}`));
-      return { ...item, A: newValue };
-    });
-
     setAthlete(updatedAthlete);
-    setNutrition(updatedNutrition);
+    
+    // Mutate global mock data so it persists across views
+    const index = athletes.findIndex(a => a.id === athlete.id);
+    if (index !== -1) {
+      athletes[index] = updatedAthlete;
+    }
+
     setIsInputModalOpen(false);
+    setSaveStatus('success');
+    setTimeout(() => setSaveStatus('idle'), 3000);
   };
 
   const handleExport = () => {
     const exportData = [{
-      Name: athlete.name,
-      Division: athlete.division,
-      Sector: athlete.sector,
+      Nama: athlete.name,
+      Divisi: athlete.division,
+      Sektor: athlete.sector,
       Status: athlete.status,
-      Weight: athlete.weight,
-      TargetWeight: athlete.targetWeight,
-      Hydration: athlete.hydrationLevel,
-      Sleep: athlete.sleepHours,
-      RPE: athlete.rpe,
-      Compliance: athlete.compliance,
-      LastCheck: '4h ago'
+      Berat: athlete.weight,
+      TargetBerat: athlete.targetWeight,
+      Tinggi: athlete.height,
+      Umur: athlete.age,
+      Kepatuhan: athlete.compliance,
+      CekTerakhir: '4j lalu'
     }];
-    downloadCSV(exportData, `Athlete_Report_${athlete.name.replace(/\s+/g, '_')}`);
+    downloadCSV(exportData, `Laporan_Atlet_${athlete.name.replace(/\s+/g, '_')}`);
   };
 
   const handleEditProfileSave = (e: React.FormEvent<HTMLFormElement>) => {
@@ -78,28 +141,24 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
     const updatedAthlete = {
       ...athlete,
       name: formData.get('name') as string,
-      division: formData.get('division') as any,
-      sector: formData.get('sector') as any,
+      division: formData.get('category') as any,
+      sector: '' as any,
       status: formData.get('status') as any,
       whatsapp: formData.get('whatsapp') as string,
-      email: formData.get('email') as string,
       bloodType: formData.get('bloodType') as string,
       dominantHand: formData.get('dominantHand') as any,
       placeOfBirth: formData.get('placeOfBirth') as string,
       dateOfBirth: formData.get('dateOfBirth') as string,
-      joinYear: Number(formData.get('joinYear')),
-      apparelSize: {
-        shirt: formData.get('shirtSize') as string,
-        shoe: Number(formData.get('shoeSize')),
-      },
-      socialMedia: {
-        instagram: formData.get('instagram') as string,
-      },
-      emergencyContact: {
-        name: formData.get('emergencyName') as string,
-        relation: formData.get('emergencyRelation') as string,
-        phone: formData.get('emergencyPhone') as string,
-      }
+      height: Number(formData.get('height')),
+      age: Number(formData.get('age')),
+      targetWeight: Number(formData.get('targetWeight')),
+      targetBodyFat: Number(formData.get('targetBodyFat')),
+      exerciseCalories: Number(formData.get('exerciseCalories')),
+      presentEnergy: Number(formData.get('presentEnergy')),
+      dailyCalories: Number(formData.get('dailyCalories')),
+      armCircumference: Number(formData.get('armCircumference')),
+      armCircumferenceCategory: formData.get('armCircumferenceCategory') as string,
+      armCircumferenceRangeBB: formData.get('armCircumferenceRangeBB') as string,
     };
 
     // Update local state
@@ -112,14 +171,271 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
     }
 
     setIsEditProfileModalOpen(false);
+    setSaveStatus('success');
+    setTimeout(() => setSaveStatus('idle'), 3000);
+  };
+
+  // Notes CRUD
+  const handleSaveNote = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const title = formData.get('title') as string;
+    const content = formData.get('content') as string;
+    const category = formData.get('category') as NoteEntry['category'];
+
+    let updatedNotes: NoteEntry[];
+    if (editingNote) {
+      updatedNotes = athlete.notes.map(n => n.id === editingNote.id ? { ...n, title, content, category } : n);
+    } else {
+      const newNote: NoteEntry = {
+        id: Math.random().toString(36).substr(2, 9),
+        date: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' }).toUpperCase(),
+        title,
+        content,
+        category
+      };
+      updatedNotes = [newNote, ...athlete.notes];
+    }
+
+    setAthlete({ ...athlete, notes: updatedNotes });
+    setIsNoteModalOpen(false);
+    setEditingNote(null);
+  };
+
+  const handleDeleteNote = (id: string) => {
+    setAthlete({ ...athlete, notes: athlete.notes.filter(n => n.id !== id) });
+  };
+
+  // Injuries CRUD
+  const handleSaveInjury = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const type = formData.get('type') as string;
+    const severity = formData.get('severity') as InjuryEntry['severity'];
+    const status = formData.get('status') as InjuryEntry['status'];
+    const notes = formData.get('notes') as string;
+
+    let updatedInjuries: InjuryEntry[];
+    if (editingInjury) {
+      updatedInjuries = athlete.injuries.map(i => i.id === editingInjury.id ? { ...i, type, severity, status, notes } : i);
+    } else {
+      const newInjury: InjuryEntry = {
+        id: Math.random().toString(36).substr(2, 9),
+        date: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' }).toUpperCase(),
+        type,
+        severity,
+        status,
+        notes
+      };
+      updatedInjuries = [newInjury, ...athlete.injuries];
+    }
+
+    // Auto-update athlete status if active injury
+    const hasActiveInjury = updatedInjuries.some(i => i.status === 'Active');
+    const newStatus = hasActiveInjury ? 'Cedera' : (athlete.status === 'Cedera' ? 'Pemulihan' : athlete.status);
+
+    setAthlete({ ...athlete, injuries: updatedInjuries, status: newStatus as any });
+    setIsInjuryModalOpen(false);
+    setEditingInjury(null);
+  };
+
+  const handleShareReport = (type: 'pdf' | 'jpg' | 'whatsapp') => {
+    let filteredHistory = athlete.assessmentHistory;
+    let title = '';
+
+    if (reportRange === 'currentMonth') {
+      const start = startOfMonth(new Date());
+      const end = endOfMonth(new Date());
+      filteredHistory = athlete.assessmentHistory.filter(entry => {
+        const entryDate = parse(entry.date, 'dd MMM yy', new Date(), { locale: id });
+        return isWithinInterval(entryDate, { start, end });
+      });
+      title = `Laporan Bulan ${format(new Date(), 'MMMM yyyy', { locale: id })}`;
+    } else {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      filteredHistory = athlete.assessmentHistory.filter(entry => {
+        const entryDate = parse(entry.date, 'dd MMM yy', new Date(), { locale: id });
+        return isWithinInterval(entryDate, { start, end });
+      });
+      title = `Laporan Periode ${format(start, 'dd MMM yyyy', { locale: id })} - ${format(end, 'dd MMM yyyy', { locale: id })}`;
+    }
+
+    if (filteredHistory.length === 0) {
+      setShareError('Tidak ada data asesmen pada rentang waktu tersebut.');
+      setTimeout(() => setShareError(null), 3000);
+      return;
+    }
+
+    try {
+      if (type === 'pdf') {
+        const doc = generateAssessmentPDF(athlete, filteredHistory, title);
+        doc.save(`Laporan_Asesmen_${athlete.name.replace(/\s+/g, '_')}.pdf`);
+      } else if (type === 'jpg') {
+        // Capture the main profile content
+        captureElementAsJPG('athlete-profile-content', `Laporan_Asesmen_${athlete.name.replace(/\s+/g, '_')}`);
+      } else if (type === 'whatsapp') {
+        const message = `Halo ${athlete.name}, berikut adalah ringkasan hasil asesmen fisik kamu untuk ${title}. \n\nBerat Badan Terakhir: ${athlete.weight} kg\nLemak Tubuh: ${athlete.bodyFatCaliper}%\n\nSilakan cek detailnya pada laporan yang akan saya kirimkan.`;
+        shareToWhatsApp(athlete.whatsapp, message);
+      }
+      
+      setIsShareModalOpen(false);
+    } catch (error) {
+      console.error('Error sharing report:', error);
+      setShareError('Gagal memproses laporan. Silakan coba lagi.');
+      setTimeout(() => setShareError(null), 3000);
+    }
+  };
+
+  const handleDeleteInjury = (id: string) => {
+    const updatedInjuries = athlete.injuries.filter(i => i.id !== id);
+    const hasActiveInjury = updatedInjuries.some(i => i.status === 'Active');
+    const newStatus = hasActiveInjury ? 'Cedera' : (athlete.status === 'Cedera' ? 'Pemulihan' : athlete.status);
+    setAthlete({ ...athlete, injuries: updatedInjuries, status: newStatus as any });
   };
 
   return (
     <motion.div 
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
-      className="p-8 space-y-8 h-full overflow-y-auto custom-scrollbar print-container relative"
+      className="h-full overflow-y-auto custom-scrollbar print-container relative bg-white"
     >
+      {/* Success Notification */}
+      <AnimatePresence>
+        {saveStatus === 'success' && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-8 right-8 bg-emerald-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 z-[200]"
+          >
+            <CheckCircle2 className="w-6 h-6" />
+            <div>
+              <div className="text-sm font-black uppercase tracking-tight">Berhasil Disimpan</div>
+              <div className="text-[10px] font-bold opacity-80 uppercase tracking-widest">Data atlet telah diperbarui</div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Share Report Modal */}
+      {isShareModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[120] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200"
+          >
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div>
+                <h3 className="text-xl font-black text-slate-900 tracking-tight">Kirim Laporan</h3>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Pilih rentang waktu laporan</p>
+              </div>
+              <button onClick={() => setIsShareModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-xl transition-colors">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {shareError && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-3 rounded-xl bg-red-50 border border-red-100 text-[10px] font-black text-red-600 uppercase tracking-widest flex items-center gap-2"
+                >
+                  <AlertCircle className="w-4 h-4" />
+                  {shareError}
+                </motion.div>
+              )}
+              <div className="flex bg-slate-100 p-1 rounded-2xl">
+                <button 
+                  onClick={() => setReportRange('currentMonth')}
+                  className={cn(
+                    "flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+                    reportRange === 'currentMonth' ? "bg-white text-slate-900 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                  )}
+                >
+                  Bulan Ini
+                </button>
+                <button 
+                  onClick={() => setReportRange('custom')}
+                  className={cn(
+                    "flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+                    reportRange === 'custom' ? "bg-white text-slate-900 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                  )}
+                >
+                  Kustom
+                </button>
+              </div>
+
+              {reportRange === 'custom' && (
+                <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Mulai</label>
+                    <input 
+                      type="date" 
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold focus:ring-2 focus:ring-brand-red/20 outline-none" 
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Selesai</label>
+                    <input 
+                      type="date" 
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold focus:ring-2 focus:ring-brand-red/20 outline-none" 
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-3 pt-2">
+                <button 
+                  onClick={() => handleShareReport('pdf')}
+                  className="w-full flex items-center justify-between p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-all group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-red-100 text-red-600 rounded-lg group-hover:scale-110 transition-transform">
+                      <Download className="w-4 h-4" />
+                    </div>
+                    <span className="text-sm font-bold text-slate-700">Unduh Laporan PDF</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-300" />
+                </button>
+
+                <button 
+                  onClick={() => handleShareReport('jpg')}
+                  className="w-full flex items-center justify-between p-4 rounded-2xl bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-all group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 text-blue-600 rounded-lg group-hover:scale-110 transition-transform">
+                      <Download className="w-4 h-4" />
+                    </div>
+                    <span className="text-sm font-bold text-blue-700">Unduh Laporan JPG</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-blue-300" />
+                </button>
+
+                <button 
+                  onClick={() => handleShareReport('whatsapp')}
+                  className="w-full flex items-center justify-between p-4 rounded-2xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-all group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-emerald-500 text-white rounded-lg group-hover:scale-110 transition-transform">
+                      <Share2 className="w-4 h-4" />
+                    </div>
+                    <span className="text-sm font-bold text-emerald-700">Kirim ke WhatsApp</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-emerald-300" />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {/* Input Modal */}
       {isInputModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
@@ -131,7 +447,7 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
             <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div>
                 <h3 className="text-xl font-black text-slate-900 tracking-tight">Input Asesmen Berkala</h3>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Input data for {athlete.name}</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Input data untuk {athlete.name}</p>
               </div>
               <button onClick={() => setIsInputModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-xl transition-colors">
                 <X className="w-5 h-5 text-slate-400" />
@@ -139,73 +455,50 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
             </div>
             
             <form onSubmit={handleUpdateData} className="p-8 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
-              {/* Date & Time Section */}
+              {/* Seksi Biometrik */}
               <div className="space-y-4">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Tanggal Asesmen</h4>
-                <div className="grid grid-cols-2 gap-4">
+                <h4 className="text-[10px] font-black text-brand-red uppercase tracking-[0.2em]">Data Asesmen</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Date</label>
-                    <input 
-                      name="logDate" 
-                      type="date" 
-                      defaultValue={new Date().toISOString().split('T')[0]} 
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Time</label>
-                    <input 
-                      name="logTime" 
-                      type="time" 
-                      defaultValue={new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} 
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Biometrics Section */}
-              <div className="space-y-4">
-                <h4 className="text-[10px] font-black text-brand-red uppercase tracking-[0.2em]">Biometrics</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Weight (kg)</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Berat Badan (kg)</label>
                     <input name="weight" type="number" step="0.1" defaultValue={athlete.weight} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Hydration (%)</label>
-                    <input name="hydration" type="number" defaultValue={athlete.hydrationLevel} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Sleep (hours)</label>
-                    <input name="sleep" type="number" step="0.5" defaultValue={athlete.sleepHours} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Exertion (RPE 1-10)</label>
-                    <input name="rpe" type="number" min="1" max="10" defaultValue={athlete.rpe} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Lemak Tubuh % (In Body)</label>
+                    <input name="bfInBody" type="number" step="0.1" defaultValue={athlete.bodyFatInBody} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
                   </div>
                 </div>
               </div>
 
-              {/* Nutrition Section */}
+              {/* Seksi Kaliper */}
               <div className="space-y-4">
-                <h4 className="text-[10px] font-black text-green-600 uppercase tracking-[0.2em]">Nutrition Balance (0-150)</h4>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {nutrition.map(item => (
-                    <div key={item.subject} className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">{item.subject}</label>
-                      <input name={`nutri_${item.subject.toLowerCase()}`} type="number" defaultValue={item.A} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all" />
-                    </div>
-                  ))}
+                <h4 className="text-[10px] font-black text-brand-red uppercase tracking-[0.2em]">Data Kaliper (mm)</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Bisep (B)</label>
+                    <input name="bicep" type="number" step="0.1" defaultValue={3} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Trisep (T)</label>
+                    <input name="tricep" type="number" step="0.1" defaultValue={5} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Subskapula (SC)</label>
+                    <input name="subscapula" type="number" step="0.1" defaultValue={7} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Abdominal (A)</label>
+                    <input name="abdominal" type="number" step="0.1" defaultValue={6} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
+                  </div>
                 </div>
               </div>
 
               <div className="pt-4 flex gap-3">
                 <button type="button" onClick={() => setIsInputModalOpen(false)} className="flex-1 px-6 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-black uppercase tracking-widest transition-all">
-                  Cancel
+                  Batal
                 </button>
                 <button type="submit" className="flex-1 px-6 py-3 rounded-xl bg-brand-red hover:bg-brand-red-hover text-white text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-brand-red/20">
-                  Save Changes
+                  Simpan Perubahan
                 </button>
               </div>
             </form>
@@ -223,8 +516,8 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
           >
             <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
               <div>
-                <h3 className="text-xl font-black text-slate-900 tracking-tight">Edit Profile</h3>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Update data for {athlete.name}</p>
+                <h3 className="text-xl font-black text-slate-900 tracking-tight">Edit Profil</h3>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Perbarui data untuk {athlete.name}</p>
               </div>
               <button onClick={() => setIsEditProfileModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-xl transition-colors">
                 <X className="w-5 h-5 text-slate-400" />
@@ -233,70 +526,51 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
             
             <form onSubmit={handleEditProfileSave} className="p-6 overflow-y-auto custom-scrollbar flex-1">
               <div className="space-y-8">
-                {/* Basic Info */}
+                {/* Info Dasar */}
                 <div className="space-y-4">
-                  <h4 className="text-[10px] font-black text-brand-red uppercase tracking-[0.2em]">Basic Information</h4>
+                  <h4 className="text-[10px] font-black text-brand-red uppercase tracking-[0.2em]">Informasi Dasar</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Full Name</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Nama Lengkap</label>
                       <input name="name" type="text" defaultValue={athlete.name} required className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-slate-500 uppercase">Status</label>
                       <select name="status" defaultValue={athlete.status} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all">
                         <option value="Fit">Fit</option>
-                        <option value="Injured">Injured</option>
-                        <option value="Recovery">Recovery</option>
+                        <option value="Cedera">Cedera</option>
+                        <option value="Recovery">Pemulihan</option>
                       </select>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Division</label>
-                      <select name="division" defaultValue={athlete.division} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all">
-                        <option value="U-13">U-13</option>
-                        <option value="U-15">U-15</option>
-                        <option value="U-17">U-17</option>
-                        <option value="U-19">U-19</option>
-                        <option value="Senior">Senior</option>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Kategori</label>
+                      <select name="category" defaultValue={athlete.division} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all">
+                        {['U-13', 'U-15', 'U-17', 'U-19', 'Senior', "Men's Singles", "Women's Singles", "Men's Doubles", "Women's Doubles", "Mixed Doubles"].map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
                       </select>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Sector</label>
-                      <select name="sector" defaultValue={athlete.sector} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all">
-                        <option value="Men's Singles">Men's Singles</option>
-                        <option value="Women's Singles">Women's Singles</option>
-                        <option value="Men's Doubles">Men's Doubles</option>
-                        <option value="Women's Doubles">Women's Doubles</option>
-                        <option value="Mixed Doubles">Mixed Doubles</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Contact & Social */}
-                <div className="space-y-4">
-                  <h4 className="text-[10px] font-black text-brand-red uppercase tracking-[0.2em]">Contact & Social</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">WhatsApp</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Nomor WhatsApp</label>
                       <input name="whatsapp" type="text" defaultValue={athlete.whatsapp} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Email</label>
-                      <input name="email" type="email" defaultValue={athlete.email} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Instagram</label>
-                      <input name="instagram" type="text" defaultValue={athlete.socialMedia.instagram} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
-                    </div>
                   </div>
                 </div>
 
-                {/* Physical & Medical */}
+                {/* Fisik & Medis */}
                 <div className="space-y-4">
-                  <h4 className="text-[10px] font-black text-brand-red uppercase tracking-[0.2em]">Physical & Medical</h4>
+                  <h4 className="text-[10px] font-black text-brand-red uppercase tracking-[0.2em]">Informasi Fisik & Pribadi</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Blood Type</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Tinggi Badan (cm)</label>
+                      <input name="height" type="number" defaultValue={athlete.height} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Umur</label>
+                      <input name="age" type="number" defaultValue={athlete.age} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Golongan Darah</label>
                       <select name="bloodType" defaultValue={athlete.bloodType} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all">
                         <option value="A">A</option>
                         <option value="B">B</option>
@@ -305,52 +579,65 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                       </select>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Dominant Hand</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Tangan Dominan</label>
                       <select name="dominantHand" defaultValue={athlete.dominantHand} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all">
                         <option value="Kanan">Kanan</option>
                         <option value="Kidal">Kidal</option>
                       </select>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Place of Birth</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Tempat Lahir</label>
                       <input name="placeOfBirth" type="text" defaultValue={athlete.placeOfBirth} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Date of Birth</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Tanggal Lahir</label>
                       <input name="dateOfBirth" type="text" defaultValue={athlete.dateOfBirth} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
                     </div>
                   </div>
                 </div>
 
-                {/* Logistics & Emergency */}
+                {/* Target & Komposisi */}
                 <div className="space-y-4">
-                  <h4 className="text-[10px] font-black text-brand-red uppercase tracking-[0.2em]">Logistics & Emergency</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <h4 className="text-[10px] font-black text-brand-red uppercase tracking-[0.2em]">Target & Komposisi</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Join Year</label>
-                      <input name="joinYear" type="number" defaultValue={athlete.joinYear} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Target Berat Badan (kg)</label>
+                      <input name="targetWeight" type="number" step="0.1" defaultValue={athlete.targetWeight} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Shirt Size</label>
-                      <input name="shirtSize" type="text" defaultValue={athlete.apparelSize.shirt} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Target Lemak Tubuh (%)</label>
+                      <input name="targetBodyFat" type="number" step="0.1" defaultValue={athlete.targetBodyFat} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Shoe Size</label>
-                      <input name="shoeSize" type="number" defaultValue={athlete.apparelSize.shoe} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Lingkar Lengan (cm)</label>
+                      <input name="armCircumference" type="number" step="0.1" defaultValue={athlete.armCircumference} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Kategori Lengan</label>
+                      <input name="armCircumferenceCategory" type="text" defaultValue={athlete.armCircumferenceCategory} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Range BB Lengan</label>
+                      <input name="armCircumferenceRangeBB" type="text" defaultValue={athlete.armCircumferenceRangeBB} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
                     </div>
                   </div>
+                </div>
+
+                {/* Energi & Kalori */}
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black text-brand-red uppercase tracking-[0.2em]">Energi & Kalori</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Emergency Name</label>
-                      <input name="emergencyName" type="text" defaultValue={athlete.emergencyContact.name} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Kalori Latihan</label>
+                      <input name="exerciseCalories" type="number" defaultValue={athlete.exerciseCalories} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Emergency Relation</label>
-                      <input name="emergencyRelation" type="text" defaultValue={athlete.emergencyContact.relation} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Energi Saat Ini</label>
+                      <input name="presentEnergy" type="number" defaultValue={athlete.presentEnergy} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Emergency Phone</label>
-                      <input name="emergencyPhone" type="text" defaultValue={athlete.emergencyContact.phone} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Kalori Harian</label>
+                      <input name="dailyCalories" type="number" defaultValue={athlete.dailyCalories} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
                     </div>
                   </div>
                 </div>
@@ -358,10 +645,10 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
 
               <div className="pt-8 flex gap-3 sticky bottom-0 bg-white border-t border-slate-100 mt-8 pb-2">
                 <button type="button" onClick={() => setIsEditProfileModalOpen(false)} className="flex-1 px-6 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-black uppercase tracking-widest transition-all">
-                  Cancel
+                  Batal
                 </button>
                 <button type="submit" className="flex-1 px-6 py-3 rounded-xl bg-brand-red hover:bg-brand-red-hover text-white text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-brand-red/20">
-                  Save Profile
+                  Simpan Profil
                 </button>
               </div>
             </form>
@@ -369,12 +656,101 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
         </div>
       )}
 
+      {/* History Modal */}
+      {isHistoryModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-6xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]"
+          >
+            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center shadow-lg shadow-slate-900/20">
+                  <Table className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Tabel Riwayat Asesmen</h3>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Data Historis Komposisi Tubuh - {athlete.name}</p>
+                </div>
+              </div>
+              <button onClick={() => setIsHistoryModalOpen(false)} className="p-3 hover:bg-slate-200 rounded-2xl transition-all">
+                <X className="w-6 h-6 text-slate-400" />
+              </button>
+            </div>
+            
+            <div className="p-8 overflow-y-auto custom-scrollbar flex-1">
+              <div className="overflow-x-auto" id="assessment-history-table">
+                <table className="w-full text-left border-collapse min-w-[1000px]">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50/50">
+                      <th className="py-4 px-4 text-[10px] font-black text-slate-900 uppercase tracking-widest border border-slate-200">No</th>
+                      <th className="py-4 px-4 text-[10px] font-black text-slate-900 uppercase tracking-widest border border-slate-200">Hari Tanggal</th>
+                      <th className="py-4 px-4 text-[10px] font-black text-slate-900 uppercase tracking-widest border border-slate-200">BF % In Body</th>
+                      <th className="py-4 px-4 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center border border-slate-200" colSpan={4}>Body Fat % (Kaliper)</th>
+                      <th className="py-4 px-4 text-[10px] font-black text-slate-900 uppercase tracking-widest border border-slate-200">TOT</th>
+                      <th className="py-4 px-4 text-[10px] font-black text-slate-900 uppercase tracking-widest border border-slate-200">BF%</th>
+                      <th className="py-4 px-4 text-[10px] font-black text-slate-900 uppercase tracking-widest border border-slate-200">BB (kg)</th>
+                      <th className="py-4 px-4 text-[10px] font-black text-slate-900 uppercase tracking-widest border border-slate-200">LBM (kg)</th>
+                      <th className="py-4 px-4 text-[10px] font-black text-slate-900 uppercase tracking-widest border border-slate-200">FM (kg)</th>
+                    </tr>
+                    <tr className="border-b border-slate-100 bg-slate-100/50">
+                      <th colSpan={3} className="border border-slate-200"></th>
+                      <th className="py-2 px-2 text-[8px] font-bold text-slate-700 uppercase text-center border border-slate-200">B</th>
+                      <th className="py-2 px-2 text-[8px] font-bold text-slate-700 uppercase text-center border border-slate-200">T</th>
+                      <th className="py-2 px-2 text-[8px] font-bold text-slate-700 uppercase text-center border border-slate-200">SC</th>
+                      <th className="py-2 px-2 text-[8px] font-bold text-slate-700 uppercase text-center border border-slate-200">A</th>
+                      <th colSpan={5} className="border border-slate-200"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {athlete.assessmentHistory.map((entry, index) => (
+                      <tr key={index} className="hover:bg-slate-50/50 transition-colors group">
+                        <td className="py-4 px-4 text-xs font-bold text-slate-400 border border-slate-100">{index + 1}</td>
+                        <td className="py-4 px-4 text-xs font-black text-slate-900 border border-slate-100">{entry.date}</td>
+                        <td className="py-4 px-4 text-xs font-black text-blue-600 border border-slate-100">{entry.bfInBody}</td>
+                        <td className="py-4 px-2 text-xs font-bold text-slate-600 text-center border border-slate-100">{entry.bicep}</td>
+                        <td className="py-4 px-2 text-xs font-bold text-slate-600 text-center border border-slate-100">{entry.tricep}</td>
+                        <td className="py-4 px-2 text-xs font-bold text-slate-600 text-center border border-slate-100">{entry.subscapula}</td>
+                        <td className="py-4 px-2 text-xs font-bold text-slate-600 text-center border border-slate-100">{entry.abdominal}</td>
+                        <td className="py-4 px-4 text-xs font-black text-slate-900 border border-slate-100">{entry.total}</td>
+                        <td className="py-4 px-4 text-xs font-black text-brand-red border border-slate-100">{entry.bfCaliper}</td>
+                        <td className="py-4 px-4 text-xs font-black text-slate-900 border border-slate-100 bg-yellow-50/50">{entry.weight}</td>
+                        <td className="py-4 px-4 text-xs font-black text-emerald-600 border border-slate-100">{entry.lbm}</td>
+                        <td className="py-4 px-4 text-xs font-black text-orange-600 border border-slate-100">{entry.fm}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            
+            <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3">
+              <button 
+                onClick={handleExport}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white hover:bg-slate-50 text-slate-600 text-xs font-black uppercase tracking-widest border border-slate-200 transition-all shadow-sm"
+              >
+                <Download className="w-4 h-4" />
+                Ekspor CSV
+              </button>
+              <button 
+                onClick={() => setIsHistoryModalOpen(false)}
+                className="px-8 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-slate-900/20"
+              >
+                Tutup
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {/* Header Section */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+      <div id="athlete-profile-content" className="p-8 space-y-8 bg-white">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 no-print">
         <div className="flex items-center gap-6">
           <button 
             onClick={onBack}
-            className="p-3 bg-white hover:bg-slate-50 text-slate-400 hover:text-slate-600 rounded-2xl transition-all border border-slate-200 shadow-sm no-print"
+            className="p-3 bg-white hover:bg-slate-50 text-slate-400 hover:text-slate-600 rounded-2xl transition-all border border-slate-200 shadow-sm"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -384,27 +760,25 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
               <div className={cn(
                 "absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-4 border-white",
                 athlete.status === 'Fit' ? "bg-green-500" : 
-                athlete.status === 'Injured' ? "bg-red-500" : "bg-yellow-500"
+                athlete.status === 'Cedera' ? "bg-red-500" : "bg-yellow-500"
               )}></div>
             </div>
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-4xl font-black text-slate-900 tracking-tight">{athlete.name}</h1>
+                <h1 className="text-4xl font-black text-slate-900 tracking-tight uppercase">{athlete.name}</h1>
                 <span className={cn(
                   "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border",
                   athlete.status === 'Fit' ? "bg-green-500/10 text-green-600 border-green-500/20" : 
-                  athlete.status === 'Injured' ? "bg-red-500/10 text-red-600 border-red-500/20" : 
+                  athlete.status === 'Cedera' ? "bg-red-500/10 text-red-600 border-red-500/20" : 
                   "bg-yellow-500/10 text-yellow-600 border-yellow-500/20"
                 )}>
                   {athlete.status}
                 </span>
               </div>
               <div className="flex items-center gap-3 mt-1.5">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">{athlete.division} Division</span>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">Kategori {athlete.division}</span>
                 <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">{athlete.sector}</span>
-                <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
-                <span className="text-[10px] font-black text-brand-red uppercase tracking-widest">PBSI National Training</span>
+                <span className="text-[10px] font-black text-brand-red uppercase tracking-widest">Pelatnas PBSI</span>
               </div>
             </div>
           </div>
@@ -416,460 +790,661 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-900 text-xs font-bold border border-slate-200 transition-all shadow-sm"
           >
             <Edit2 className="w-4 h-4" />
-            Edit Profile
+            Edit Profil
           </button>
           <button 
             onClick={() => setIsInputModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-lg shadow-slate-900/20"
           >
             <Plus className="w-4 h-4" />
-            Input Asesmen Berkala
+            Input Asesmen
+          </button>
+          <button 
+            onClick={() => setIsShareModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-all shadow-lg shadow-emerald-500/20"
+          >
+            <Share2 className="w-4 h-4" />
+            Kirim Hasil
           </button>
           <button 
             onClick={triggerPrint}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-900 text-xs font-bold border border-slate-200 transition-all shadow-sm"
           >
             <Printer className="w-4 h-4" />
-            Print Report
+            Cetak
           </button>
           <button 
             onClick={handleExport}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-red hover:bg-brand-red-hover text-white text-xs font-bold transition-all shadow-lg shadow-brand-red/20"
           >
             <Download className="w-4 h-4" />
-            Export CSV
+            Ekspor
           </button>
         </div>
       </div>
 
-      {/* Biodata & Contact Section */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 print-grid-cols-1">
-        {/* Contact & Social */}
-        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col gap-4">
-          <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
-            <User className="w-4 h-4 text-brand-red" />
-            Contact & Social
-          </h3>
-          <div className="space-y-3">
-            <a href={`https://wa.me/${athlete.whatsapp.replace('+', '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 hover:bg-green-50 text-slate-600 hover:text-green-600 transition-colors border border-slate-100 hover:border-green-200 group">
-              <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center group-hover:bg-green-200 transition-colors">
-                <MessageCircle className="w-4 h-4 text-green-600" />
-              </div>
-              <div className="flex-1">
-                <div className="text-[10px] font-bold text-slate-400 uppercase">WhatsApp</div>
-                <div className="text-xs font-black">{athlete.whatsapp}</div>
-              </div>
-              <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </a>
-            <a href={`mailto:${athlete.email}`} className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-600 transition-colors border border-slate-100 hover:border-blue-200 group">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-                <Mail className="w-4 h-4 text-blue-600" />
-              </div>
-              <div className="flex-1">
-                <div className="text-[10px] font-bold text-slate-400 uppercase">Email</div>
-                <div className="text-xs font-black">{athlete.email}</div>
-              </div>
-              <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </a>
-            <a href={`https://instagram.com/${athlete.socialMedia.instagram.replace('@', '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 hover:bg-pink-50 text-slate-600 hover:text-pink-600 transition-colors border border-slate-100 hover:border-pink-200 group">
-              <div className="w-8 h-8 rounded-lg bg-pink-100 flex items-center justify-center group-hover:bg-pink-200 transition-colors">
-                <Instagram className="w-4 h-4 text-pink-600" />
-              </div>
-              <div className="flex-1">
-                <div className="text-[10px] font-bold text-slate-400 uppercase">Instagram</div>
-                <div className="text-xs font-black">{athlete.socialMedia.instagram}</div>
-              </div>
-              <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </a>
-          </div>
-        </div>
-
-        {/* Physical & Medical */}
-        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col gap-4">
-          <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
-            <Info className="w-4 h-4 text-blue-500" />
-            Physical & Medical
-          </h3>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-              <div className="flex items-center gap-2 mb-1">
-                <Droplet className="w-3 h-3 text-red-500" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Blood Type</span>
-              </div>
-              <div className="text-sm font-black text-slate-900">{athlete.bloodType}</div>
-            </div>
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-              <div className="flex items-center gap-2 mb-1">
-                <Hand className="w-3 h-3 text-amber-500" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Dominant Hand</span>
-              </div>
-              <div className="text-sm font-black text-slate-900">{athlete.dominantHand}</div>
-            </div>
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-              <div className="flex items-center gap-2 mb-1">
-                <MapPin className="w-3 h-3 text-emerald-500" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Birthplace</span>
-              </div>
-              <div className="text-sm font-black text-slate-900">{athlete.placeOfBirth}</div>
-            </div>
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-              <div className="flex items-center gap-2 mb-1">
-                <CalendarDays className="w-3 h-3 text-indigo-500" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Date of Birth</span>
-              </div>
-              <div className="text-sm font-black text-slate-900">{athlete.dateOfBirth}</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Logistics & Emergency */}
-        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col gap-4">
-          <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
-            <Shirt className="w-4 h-4 text-purple-500" />
-            Logistics & Emergency
-          </h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
-                  <Shirt className="w-4 h-4 text-purple-600" />
-                </div>
-                <div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase">Apparel Size</div>
-                  <div className="text-xs font-black text-slate-900">Shirt: {athlete.apparelSize.shirt} • Shoe: {athlete.apparelSize.shoe}</div>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
-                  <Calendar className="w-4 h-4 text-indigo-600" />
-                </div>
-                <div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase">Join Year</div>
-                  <div className="text-xs font-black text-slate-900">{athlete.joinYear} (Pelatnas)</div>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-xl bg-red-50 border border-red-100">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
-                  <PhoneCall className="w-4 h-4 text-red-600" />
-                </div>
-                <div>
-                  <div className="text-[10px] font-bold text-red-400 uppercase">Emergency Contact</div>
-                  <div className="text-xs font-black text-red-900">{athlete.emergencyContact.name} ({athlete.emergencyContact.relation})</div>
-                  <div className="text-xs font-bold text-red-700">{athlete.emergencyContact.phone}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* Tab Navigation */}
+      <div className="flex items-center gap-8 border-b border-slate-100 no-print">
+        <button 
+          onClick={() => setActiveTab('overview')}
+          className={cn(
+            "pb-4 text-xs font-black uppercase tracking-widest transition-all relative",
+            activeTab === 'overview' ? "text-slate-900" : "text-slate-400 hover:text-slate-600"
+          )}
+        >
+          Ringkasan Profil
+          {activeTab === 'overview' && <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-1 bg-brand-red rounded-t-full" />}
+        </button>
+        <button 
+          onClick={() => setActiveTab('assessment')}
+          className={cn(
+            "pb-4 text-xs font-black uppercase tracking-widest transition-all relative",
+            activeTab === 'assessment' ? "text-slate-900" : "text-slate-400 hover:text-slate-600"
+          )}
+        >
+          Asesmen Fisik
+          {activeTab === 'assessment' && <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-1 bg-brand-red rounded-t-full" />}
+        </button>
       </div>
 
-      {/* Comprehensive Profile Section - NEW LAYOUT */}
-      <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm print-break-inside-avoid overflow-hidden">
-        <div className="flex flex-col xl:flex-row gap-8">
-          {/* Left Column: Interactive Anatomy */}
-          <div className="xl:w-[45%] flex flex-col items-center justify-center bg-slate-50/50 rounded-3xl border border-slate-100 relative p-8 min-h-[600px]">
-            <div className="absolute top-6 left-6 flex flex-col z-10">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Anatomical Mapping</span>
-              <span className="text-[8px] font-bold text-brand-red uppercase tracking-widest">Interactive Performance Analysis</span>
-            </div>
-            
-            {/* Control Panel (Visual only as per reference) */}
-            <div className="absolute right-6 top-1/2 -translate-y-1/2 flex flex-col gap-3 z-10 no-print">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="w-10 h-10 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-400 hover:text-brand-red cursor-pointer transition-all hover:scale-110">
-                  {i === 1 ? <Activity className="w-4 h-4" /> : i === 2 ? <Ruler className="w-4 h-4" /> : i === 3 ? <Zap className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
-                </div>
-              ))}
-            </div>
+      <AnimatePresence mode="wait">
+        {activeTab === 'overview' ? (
+          <motion.div 
+            key="overview"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-8"
+          >
 
-            <BodyVisualization athlete={athlete} />
-            
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10">
-              <div className="w-2 h-2 rounded-full bg-brand-red animate-pulse"></div>
-              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Live Biometric Feed</span>
-            </div>
+      {/* Hero Section: Anatomical Mapping & Personal Data */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Left: Anatomical Mapping */}
+        <div className="lg:col-span-6 bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm flex flex-col items-center justify-center relative overflow-hidden min-h-[650px]">
+          <div className="absolute top-8 left-8 flex flex-col z-10">
+            <span className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Komposisi Tubuh</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Visualisasi Klinis</span>
           </div>
+          
+          <BodyVisualization athlete={athlete} />
+          
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10">
+            <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
+            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Data Terverifikasi</span>
+          </div>
+        </div>
 
-          {/* Right Column: Data Cards Grid */}
-          <div className="xl:w-[55%] space-y-6">
-            {/* Health Overview Card */}
-            <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Health Overview</h3>
-                <div className="flex gap-3">
-                  <span className="flex items-center gap-1 text-[8px] font-bold text-blue-500 uppercase tracking-widest">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div> Heart Rate
-                  </span>
-                  <span className="flex items-center gap-1 text-[8px] font-bold text-green-500 uppercase tracking-widest">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div> Blood Pressure
-                  </span>
-                </div>
+        {/* Right: Comprehensive Personal Data Card */}
+        <div className="lg:col-span-6 flex flex-col gap-6">
+          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm h-full flex flex-col">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <div className="w-1.5 h-5 bg-blue-500 rounded-full"></div>
+                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Identitas & Fisik Atlet</h3>
               </div>
-              <div className="h-48 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={weightHistory.slice(-7)}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                    <XAxis dataKey="date" hide />
-                    <YAxis hide />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', fontSize: '10px' }}
-                    />
-                    <Line type="monotone" dataKey="weight" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, fill: '#3b82f6' }} />
-                    <Line type="monotone" dataKey="target" stroke="#22c55e" strokeWidth={3} dot={{ r: 4, fill: '#22c55e' }} />
-                  </LineChart>
-                </ResponsiveContainer>
+              <div className="px-4 py-1.5 rounded-xl bg-slate-50 border border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                ID: {athlete.id.padStart(4, '0')}
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Recent Tests Card */}
-              <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-                <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-4">Recent Tests</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
-                        <Droplets className="w-4 h-4 text-blue-600" />
-                      </div>
-                      <div>
-                        <div className="text-[10px] font-black text-slate-900">Blood Test</div>
-                        <div className="text-[8px] font-bold text-slate-400 uppercase">Tomorrow, 10:00 AM</div>
-                      </div>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full bg-blue-500 text-[7px] font-black text-white uppercase">Scheduled</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center">
-                        <Activity className="w-4 h-4 text-green-600" />
-                      </div>
-                      <div>
-                        <div className="text-[10px] font-black text-slate-900">ECG Analysis</div>
-                        <div className="text-[8px] font-bold text-slate-400 uppercase">Jan 15, 2026</div>
-                      </div>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full bg-green-500 text-[7px] font-black text-white uppercase">Completed</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Fitness Rate Card */}
-              <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-                <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-4">Fitness Rate</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 flex-grow">
+              {/* Identity Group */}
+              <div className="space-y-6">
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <HeartPulse className="w-4 h-4 text-brand-red" />
-                      <span className="text-[10px] font-bold text-slate-500 uppercase">Heart Rate</span>
-                    </div>
-                    <span className="text-xs font-black text-slate-900">72 bpm</span>
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50 pb-2">Profil Dasar</h4>
+                  <ProfileItem label="Nama Lengkap" value={athlete.name} />
+                  <ProfileItem label="Kategori" value={athlete.division} />
+                  <ProfileItem label="Nomor WhatsApp" value={athlete.whatsapp} />
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50 pb-2">Kelahiran</h4>
+                  <ProfileItem label="Tempat Lahir" value={athlete.placeOfBirth} />
+                  <ProfileItem label="Tanggal Lahir" value={athlete.dateOfBirth} />
+                  <ProfileItem label="Umur" value={`${athlete.age} Tahun`} />
+                </div>
+              </div>
+
+              {/* Physical Group */}
+              <div className="space-y-6">
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50 pb-2">Metrik Fisik</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <ProfileItem label="Tinggi" value={`${athlete.height} cm`} />
+                    <ProfileItem label="Berat" value={`${athlete.weight} kg`} />
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Droplets className="w-4 h-4 text-blue-500" />
-                      <span className="text-[10px] font-bold text-slate-500 uppercase">Blood Pressure</span>
-                    </div>
-                    <span className="text-xs font-black text-slate-900">120/80</span>
+                  <div className="grid grid-cols-2 gap-4">
+                    <ProfileItem label="Gol. Darah" value={athlete.bloodType} />
+                    <ProfileItem label="Tangan" value={athlete.dominantHand} />
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Zap className="w-4 h-4 text-yellow-500" />
-                      <span className="text-[10px] font-bold text-slate-500 uppercase">Blood Sugar</span>
-                    </div>
-                    <span className="text-xs font-black text-slate-900">95 mg/dL</span>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50 pb-2">Antropometri</h4>
+                  <ProfileItem label="Lingkar Lengan - Kategori - Range BB" value={`${athlete.armCircumference} cm - ${athlete.armCircumferenceCategory} - ${athlete.armCircumferenceRangeBB}`} />
+                  <div className="grid grid-cols-2 gap-4">
+                    <ProfileItem label="Body Fat (Kaliper)" value={`${athlete.bodyFatCaliper} %`} />
+                    <ProfileItem label="Body Fat (In Body)" value={`${athlete.bodyFatInBody} %`} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <ProfileItem label="Target Berat Badan" value={`${athlete.targetWeight} kg`} />
+                    <ProfileItem label="Target Body Fat" value={`${athlete.targetBodyFat} %`} />
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Medical Team Card */}
-            <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-              <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-4">Medical Support Team</h3>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <img src="https://picsum.photos/seed/doctor/100/100" alt="Doctor" className="w-12 h-12 rounded-xl object-cover border border-slate-100" />
-                  <div>
-                    <div className="text-xs font-black text-slate-900">Dr. Sarah Wilson</div>
-                    <div className="text-[10px] font-bold text-slate-400 uppercase">Primary Cardiologist</div>
-                  </div>
+            <div className="mt-8 pt-8 border-t border-slate-50 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex flex-col">
+                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Tahun Bergabung</span>
+                  <span className="text-xs font-black text-slate-900">{athlete.joinYear || 2022}</span>
                 </div>
-                <button className="px-4 py-2 rounded-xl bg-brand-red text-white text-[10px] font-black uppercase tracking-widest hover:bg-brand-red-hover transition-all">
-                  View Profile
-                </button>
+                <div className="w-px h-6 bg-slate-100"></div>
+                <div className="flex flex-col">
+                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Ukuran Jersey</span>
+                  <span className="text-xs font-black text-slate-900">{athlete.apparelSize?.shirt || 'L'}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Aktif Pelatnas</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Comparison Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Today Column */}
-        <div className="space-y-6">
-          <div className="flex items-center gap-3 px-2">
-            <div className="w-2 h-6 bg-brand-red rounded-full"></div>
-            <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase">Asesmen Terbaru</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <StatCard icon={Scale} label="Weight" value={`${athlete.weight} kg`} subValue={`Target: ${athlete.targetWeight} kg`} alert={Math.abs(athlete.weight - athlete.targetWeight) > 1.5} color="red" />
-            <StatCard icon={Droplets} label="Hydration" value={`${athlete.hydrationLevel}%`} subValue="Optimal: >95%" alert={athlete.hydrationLevel < 90} color="blue" />
-            <StatCard icon={Moon} label="Sleep Quality" value={`${athlete.sleepHours}h`} subValue="Target: 8.5h" alert={athlete.sleepHours < 7} color="indigo" />
-            <StatCard icon={HeartPulse} label="Exertion (RPE)" value={`${athlete.rpe}/10`} subValue="Last Training" alert={athlete.rpe > 8} color="orange" />
-          </div>
-        </div>
-
-        {/* Yesterday Column */}
-        <div className="space-y-6">
-          <div className="flex items-center gap-3 px-2">
-            <div className="w-2 h-6 bg-slate-300 rounded-full"></div>
-            <h2 className="text-xl font-black text-slate-400 tracking-tight uppercase">3 Bulan Lalu</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 opacity-60 grayscale-[0.5]">
-            <StatCard icon={Scale} label="Weight" value={`${yesterdayData.weight} kg`} subValue="Data 3 Bulan Lalu" color="red" />
-            <StatCard icon={Droplets} label="Hydration" value={`${yesterdayData.hydration}%`} subValue="Data 3 Bulan Lalu" color="blue" />
-            <StatCard icon={Moon} label="Sleep Quality" value={`${yesterdayData.sleep}h`} subValue="Data 3 Bulan Lalu" color="indigo" />
-            <StatCard icon={HeartPulse} label="Exertion (RPE)" value={`${yesterdayData.rpe}/10`} subValue="Data 3 Bulan Lalu" color="orange" />
-          </div>
-        </div>
+      {/* Key Metrics Bento Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4">
+        <StatCard icon={Scale} label="Lemak (Kaliper)" value={`${athlete.bodyFatCaliper}%`} subValue="Terbaru" color="red" />
+        <StatCard icon={Droplet} label="In Body" value={`${athlete.bodyFatInBody}%`} subValue="Lemak Tubuh" color="blue" />
+        <StatCard icon={Target} label="Target BB" value={`${athlete.targetWeight} kg`} subValue={`Sisa: ${(athlete.weight - athlete.targetWeight).toFixed(1)} kg`} color="orange" />
+        <StatCard icon={Target} label="Target Body Fat" value={`${athlete.targetBodyFat}%`} subValue="Target Persentase" color="red" />
       </div>
 
-      {/* Charts & Analytics */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 print-grid-cols-1">
-        <div className="lg:col-span-2 bg-white rounded-3xl p-8 border border-slate-200 shadow-sm print-break-inside-avoid">
+      {/* Main Analysis Section: Trends & Comparison */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Weight Trend Chart */}
+        <div className="lg:col-span-12 bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between mb-8">
-            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-pastel-red flex items-center justify-center">
-                <Activity className="w-5 h-5 text-brand-red" />
+            <div>
+              <h3 className="text-xl font-black text-slate-900 tracking-tight uppercase">Tren Berat Badan</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Perubahan Berat Badan 6 Bulan Terakhir</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-brand-red"></div>
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Berat</span>
               </div>
-              Biometric Trends
-            </h2>
-            <div className="flex gap-2">
-              <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                <div className="w-2 h-2 rounded-full bg-brand-red"></div> Actual
-              </span>
-              <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-4">
-                <div className="w-2 h-2 rounded-full bg-slate-200"></div> Target
-              </span>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-slate-200"></div>
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Target</span>
+              </div>
             </div>
           </div>
-          <div className="h-80 w-full">
+          <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={weightHistory}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="date" stroke="#94a3b8" fontSize={10} fontWeight={700} tickLine={false} axisLine={false} dy={10} />
-                <YAxis domain={['dataMin - 1', 'dataMax + 1']} stroke="#94a3b8" fontSize={10} fontWeight={700} tickLine={false} axisLine={false} dx={-10} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', color: '#0f172a', fontWeight: 'bold', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis 
+                  dataKey="date" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
+                  dy={10}
                 />
-                <Line type="monotone" dataKey="weight" stroke="#E11D48" strokeWidth={4} dot={{ r: 6, fill: '#E11D48', strokeWidth: 3, stroke: '#ffffff' }} activeDot={{ r: 8, strokeWidth: 4 }} />
-                <Line type="monotone" dataKey="target" stroke="#cbd5e1" strokeWidth={2} strokeDasharray="8 8" dot={false} />
+                <YAxis 
+                  hide 
+                  domain={['dataMin - 1', 'dataMax + 1']}
+                />
+                <Tooltip 
+                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="weight" 
+                  stroke="#e11d48" 
+                  strokeWidth={4} 
+                  dot={{ r: 4, fill: '#e11d48', strokeWidth: 2, stroke: '#fff' }}
+                  activeDot={{ r: 6, strokeWidth: 0 }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="target" 
+                  stroke="#e2e8f0" 
+                  strokeWidth={2} 
+                  strokeDasharray="5 5"
+                  dot={false}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm print-break-inside-avoid">
-          <h2 className="text-xl font-bold text-slate-900 mb-8 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-pastel-green flex items-center justify-center">
-              <Utensils className="w-5 h-5 text-green-600" />
+        {/* Comparison Cards */}
+        <div className="lg:col-span-12 space-y-4">
+          <div className="flex items-center justify-between px-2">
+            <div className="flex items-center gap-3">
+              <div className="w-1.5 h-4 bg-brand-red rounded-full"></div>
+              <h2 className="text-sm font-black text-slate-900 tracking-tight uppercase">Perbandingan Asesmen</h2>
             </div>
-            Nutrition Balance
-          </h2>
-          <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart cx="50%" cy="50%" outerRadius="80%" data={nutrition}>
-                <PolarGrid stroke="#f1f5f9" />
-                <PolarAngleAxis dataKey="subject" stroke="#94a3b8" fontSize={10} fontWeight={700} />
-                <PolarRadiusAxis angle={30} domain={[0, 150]} tick={false} axisLine={false} />
-                <Radar name="Intake" dataKey="A" stroke="#E11D48" fill="#E11D48" fillOpacity={0.5} />
-              </RadarChart>
-            </ResponsiveContainer>
+            <button 
+              onClick={() => setIsHistoryModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-[10px] font-black text-brand-red uppercase tracking-widest transition-all border border-slate-100"
+            >
+              <Table className="w-3 h-3" />
+              Lihat Riwayat Lengkap
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <AssessmentSummaryCard 
+              title="Asesmen Terbaru" 
+              data={athlete.assessmentHistory[0]} 
+              targetWeight={athlete.targetWeight}
+              type="current"
+            />
+            <AssessmentSummaryCard 
+              title="3 Bulan Lalu" 
+              data={athlete.assessmentHistory[athlete.assessmentHistory.length - 1]} 
+              type="past"
+            />
           </div>
         </div>
       </div>
 
-      {/* Nutrition Intervention Flow Chart */}
-      <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm print-break-inside-avoid">
-        <h2 className="text-xl font-bold text-slate-900 mb-8 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-pastel-indigo flex items-center justify-center">
-            <TrendingUp className="w-5 h-5 text-indigo-600" />
-          </div>
-          Nutrition Intervention Flow
-        </h2>
-        
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 relative">
-          <FlowNode icon={Activity} label="Monitoring" sub="Quarterly Biometrics" color="blue" />
-          <ArrowRight className="hidden md:block w-6 h-6 text-slate-200" />
-          <FlowNode icon={AlertTriangle} label="Analysis" sub="Alert Triggered" color="orange" />
-          <ArrowRight className="hidden md:block w-6 h-6 text-slate-200" />
-          <FlowNode icon={Utensils} label="Intervention" sub="Meal Adjustment" color="red" />
-          <ArrowRight className="hidden md:block w-6 h-6 text-slate-200" />
-          <FlowNode icon={CheckCircle2} label="Evaluation" sub="Performance Sync" color="green" />
-        </div>
-      </div>
+      {/* Removed old Assessment History Table section as it is now in a Modal */}
+      {/* Removed old Comprehensive Profile Section and Comparison Section as they are now integrated above */}
 
-      {/* Recovery & Meals */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print-grid-cols-1">
-        {athlete.status !== 'Fit' && (
-          <div className="bg-pastel-red/50 border border-brand-red/10 rounded-3xl p-8 relative overflow-hidden print-break-inside-avoid">
-            <div className="absolute top-0 right-0 p-8 opacity-5">
-              <Stethoscope className="w-24 h-24 text-brand-red" />
+      {/* Notes & Injuries Section - NEW PASTEL ACTIVITY FEED */}
+      <div className="mt-12 space-y-8">
+        {/* Summary Bento Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white rounded-[2rem] p-6 border border-slate-200 shadow-sm flex items-center gap-5">
+            <div className="w-14 h-14 rounded-2xl bg-pastel-red flex items-center justify-center text-brand-red">
+              <AlertCircle className="w-7 h-7" />
             </div>
-            <h2 className="text-xl font-bold text-brand-red mb-6 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/50 flex items-center justify-center">
-                <Stethoscope className="w-5 h-5" />
+            <div>
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cedera Aktif</div>
+              <div className="text-2xl font-black text-slate-900">{athlete.injuries.filter(i => i.status === 'Active').length}</div>
+            </div>
+          </div>
+          <div className="bg-white rounded-[2rem] p-6 border border-slate-200 shadow-sm flex items-center gap-5">
+            <div className="w-14 h-14 rounded-2xl bg-pastel-blue flex items-center justify-center text-blue-600">
+              <MessageSquareQuote className="w-7 h-7" />
+            </div>
+            <div>
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Catatan</div>
+              <div className="text-2xl font-black text-slate-900">{athlete.notes.length}</div>
+            </div>
+          </div>
+          <div className="bg-white rounded-[2rem] p-6 border border-slate-200 shadow-sm flex items-center gap-5">
+            <div className="w-14 h-14 rounded-2xl bg-pastel-green flex items-center justify-center text-green-600">
+              <CheckCircle2 className="w-7 h-7" />
+            </div>
+            <div>
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status Pemulihan</div>
+              <div className="text-2xl font-black text-slate-900">
+                {athlete.injuries.length > 0 
+                  ? Math.round((athlete.injuries.filter(i => i.status === 'Recovered').length / athlete.injuries.length) * 100) 
+                  : 100}%
               </div>
-              Recovery Protocol
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-white/60 p-5 rounded-2xl border border-brand-red/10">
-                <div className="text-xs font-black text-slate-900 uppercase tracking-widest mb-2">Caloric Deficit</div>
-                <p className="text-xs text-slate-500 leading-relaxed">Adjusted -350 kcal/day to maintain body composition during inactivity.</p>
-                <div className="mt-4 flex items-center justify-between">
-                  <span className="text-lg font-black text-slate-900">2,150 <span className="text-[10px] text-slate-400 font-bold uppercase">kcal</span></span>
-                  <div className="w-12 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                    <div className="bg-brand-red h-full w-2/3"></div>
-                  </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Unified Activity Feed */}
+        <div className="bg-white rounded-[3rem] p-10 border border-slate-200 shadow-sm">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+            <div>
+              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Timeline Aktivitas & Medis</h3>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Riwayat lengkap perkembangan dan kesehatan atlet</p>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex bg-slate-100 p-1.5 rounded-2xl mr-2">
+                {(['All', 'Note', 'Injury'] as const).map((filter) => (
+                  <button
+                    key={filter}
+                    onClick={() => setActiveFilter(filter)}
+                    className={cn(
+                      "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                      activeFilter === filter ? "bg-white text-slate-900 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                    )}
+                  >
+                    {filter === 'All' ? 'Semua' : filter === 'Note' ? 'Catatan' : 'Cedera'}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => { setEditingNote(null); setIsNoteModalOpen(true); }}
+                  className="flex items-center gap-2 px-5 py-3 bg-pastel-blue text-blue-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-100 transition-all"
+                >
+                  <Plus className="w-4 h-4" /> Catatan
+                </button>
+                <button 
+                  onClick={() => { setEditingInjury(null); setIsInjuryModalOpen(true); }}
+                  className="flex items-center gap-2 px-5 py-3 bg-pastel-red text-brand-red rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-all"
+                >
+                  <Plus className="w-4 h-4" /> Cedera
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="relative">
+            {/* Timeline Line */}
+            <div className="absolute left-6 top-0 bottom-0 w-px bg-slate-100 hidden md:block"></div>
+
+            <div className="space-y-8 relative">
+              <AnimatePresence mode="popLayout">
+                {[
+                  ...athlete.notes.map(n => ({ ...n, type: 'Note' as const })),
+                  ...athlete.injuries.map(i => ({ ...i, type: 'Injury' as const }))
+                ]
+                .filter(item => activeFilter === 'All' || item.type === activeFilter)
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .map((item) => {
+                  const isNote = item.type === 'Note';
+                  const noteItem = item as any;
+                  
+                  return (
+                    <motion.div 
+                      key={item.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className="flex gap-6 group"
+                    >
+                      {/* Icon Container */}
+                      <div className="relative z-10 hidden md:block">
+                        <div className={cn(
+                          "w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm border-2 border-white",
+                          isNote ? (
+                            noteItem.category === 'Coaching' ? "bg-pastel-blue text-blue-600" :
+                            noteItem.category === 'Nutrition' ? "bg-pastel-green text-green-600" :
+                            noteItem.category === 'Behavior' ? "bg-pastel-indigo text-indigo-600" :
+                            "bg-slate-100 text-slate-600"
+                          ) : "bg-pastel-red text-brand-red"
+                        )}>
+                          {isNote ? (
+                            noteItem.category === 'Nutrition' ? <Apple className="w-5 h-5" /> :
+                            noteItem.category === 'Behavior' ? <Zap className="w-5 h-5" /> :
+                            <MessageSquareQuote className="w-5 h-5" />
+                          ) : <Stethoscope className="w-5 h-5" />}
+                        </div>
+                      </div>
+
+                      {/* Content Card */}
+                      <div className={cn(
+                        "flex-1 p-6 rounded-[2rem] border transition-all relative group-hover:shadow-md",
+                        isNote ? (
+                          noteItem.category === 'Coaching' ? "bg-blue-50/30 border-blue-100/50" :
+                          noteItem.category === 'Nutrition' ? "bg-green-50/30 border-green-100/50" :
+                          noteItem.category === 'Behavior' ? "bg-indigo-50/30 border-indigo-100/50" :
+                          "bg-slate-50 border-slate-100"
+                        ) : "bg-red-50/30 border-red-100/50"
+                      )}>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.date}</span>
+                            <span className={cn(
+                              "px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest",
+                              isNote ? (
+                                noteItem.category === 'Coaching' ? "bg-blue-100 text-blue-600" :
+                                noteItem.category === 'Nutrition' ? "bg-green-100 text-green-600" :
+                                noteItem.category === 'Behavior' ? "bg-indigo-100 text-indigo-600" :
+                                "bg-slate-200 text-slate-600"
+                              ) : "bg-red-100 text-brand-red"
+                            )}>
+                              {isNote ? noteItem.category : 'Cedera'}
+                            </span>
+                            {!isNote && (
+                              <span className={cn(
+                                "px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest",
+                                (item as any).status === 'Active' ? "bg-brand-red text-white" : "bg-green-500 text-white"
+                              )}>
+                                {(item as any).status === 'Active' ? 'Aktif' : 'Sembuh'}
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button 
+                              onClick={() => {
+                                if (isNote) { setEditingNote(item as any); setIsNoteModalOpen(true); }
+                                else { setEditingInjury(item as any); setIsInjuryModalOpen(true); }
+                              }} 
+                              className="p-2 hover:bg-white rounded-xl text-slate-400 hover:text-slate-600 shadow-sm transition-all"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button 
+                              onClick={() => isNote ? handleDeleteNote(item.id) : handleDeleteInjury(item.id)} 
+                              className="p-2 hover:bg-white rounded-xl text-slate-400 hover:text-red-600 shadow-sm transition-all"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <h4 className="text-base font-black text-slate-900 mb-2">{isNote ? noteItem.title : (item as any).type}</h4>
+                        <p className="text-sm text-slate-500 leading-relaxed">{isNote ? noteItem.content : (item as any).notes}</p>
+                        
+                        {!isNote && (item as any).severity && (
+                          <div className="mt-4 flex items-center gap-2">
+                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Keparahan:</div>
+                            <div className="flex gap-1">
+                              {[1, 2, 3].map((i) => (
+                                <div 
+                                  key={i} 
+                                  className={cn(
+                                    "w-4 h-1.5 rounded-full",
+                                    i === 1 && (item as any).severity === 'Ringan' ? "bg-yellow-400" :
+                                    i <= 2 && (item as any).severity === 'Sedang' ? "bg-orange-400" :
+                                    i <= 3 && (item as any).severity === 'Berat' ? "bg-red-500" :
+                                    "bg-slate-200"
+                                  )}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  );
+                })
+              }
+            </AnimatePresence>
+
+            {athlete.notes.length === 0 && athlete.injuries.length === 0 && (
+              <div className="text-center py-20">
+                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Filter className="w-10 h-10 text-slate-200" />
                 </div>
+                <h4 className="text-lg font-black text-slate-900 uppercase tracking-tight">Belum ada aktivitas</h4>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-2">Mulai tambahkan catatan atau laporan cedera atlet</p>
               </div>
-              <div className="bg-white/60 p-5 rounded-2xl border border-brand-red/10">
-                <div className="text-xs font-black text-slate-900 uppercase tracking-widest mb-2">Supplementation</div>
-                <p className="text-xs text-slate-500 leading-relaxed">Focus: Collagen Type I & III, Vitamin C (1000mg), Omega-3.</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  </motion.div>
+) : (
+  <motion.div 
+    key="assessment"
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -10 }}
+    className="space-y-8"
+  >
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Riwayat Asesmen Fisik</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Data komposisi tubuh historis</p>
+              </div>
+              <button 
+                onClick={() => setIsInputModalOpen(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg"
+              >
+                <Plus className="w-4 h-4" /> Input Asesmen Baru
+              </button>
+            </div>
+
+            <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto custom-scrollbar">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100">
+                      <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tanggal</th>
+                      <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">BF% InB</th>
+                      <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">B</th>
+                      <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">T</th>
+                      <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">SC</th>
+                      <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">A</th>
+                      <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center bg-slate-50/50">TOT</th>
+                      <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center bg-slate-50/50">BF% Cal</th>
+                      <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">BB (kg)</th>
+                      <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center bg-slate-50/50">LBM</th>
+                      <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center bg-slate-50/50">FM</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {athlete.assessmentHistory.map((entry, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-4 text-xs font-black text-slate-900">{entry.date}</td>
+                        <td className="px-4 py-4 text-center text-xs font-bold text-blue-600">{entry.bfInBody}%</td>
+                        <td className="px-4 py-4 text-center text-xs font-bold text-slate-600">{entry.bicep}</td>
+                        <td className="px-4 py-4 text-center text-xs font-bold text-slate-600">{entry.tricep}</td>
+                        <td className="px-4 py-4 text-center text-xs font-bold text-slate-600">{entry.subscapula}</td>
+                        <td className="px-4 py-4 text-center text-xs font-bold text-slate-600">{entry.abdominal}</td>
+                        <td className="px-4 py-4 text-center text-xs font-black text-slate-900 bg-slate-50/30">{entry.total}</td>
+                        <td className="px-4 py-4 text-center text-xs font-black text-brand-red bg-slate-50/30">{entry.bfCaliper}%</td>
+                        <td className="px-4 py-4 text-center text-xs font-black text-slate-900">{entry.weight}</td>
+                        <td className="px-4 py-4 text-center text-xs font-black text-emerald-600 bg-slate-50/30">{entry.lbm}</td>
+                        <td className="px-4 py-4 text-center text-xs font-black text-orange-600 bg-slate-50/30">{entry.fm}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
+      </AnimatePresence>
+      </div>
 
-        <div className={cn("bg-white rounded-3xl p-8 border border-slate-200 shadow-sm print-break-inside-avoid", athlete.status === 'Fit' ? "lg:col-span-2" : "")}>
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-slate-400" />
+      {/* Note Modal */}
+      {isNoteModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[120] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden border border-white/20"
+          >
+            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div>
+                <h3 className="text-xl font-black text-slate-900 tracking-tight uppercase">{editingNote ? 'Edit Catatan' : 'Tambah Catatan'}</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Berikan feedback untuk perkembangan atlet</p>
               </div>
-              Nutrition Logs
-            </h2>
-            <button className="text-xs font-bold text-brand-red uppercase tracking-widest hover:text-brand-red-hover transition-colors no-print">View All Logs</button>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="group cursor-pointer">
-                <div className="relative h-32 rounded-2xl overflow-hidden border border-slate-100 group-hover:border-brand-red/50 transition-all">
-                  <img src={`https://picsum.photos/seed/meal${i}/400/300`} alt="Meal" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-white/80 via-transparent to-transparent"></div>
-                  <div className="absolute bottom-3 left-3">
-                    <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Lunch</span>
-                    <div className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Yesterday</div>
-                  </div>
+              <button onClick={() => setIsNoteModalOpen(false)} className="p-3 hover:bg-slate-200 rounded-2xl transition-colors">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveNote} className="p-8 space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Kategori</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {(['Coaching', 'Nutrition', 'Behavior', 'Other'] as const).map((cat) => (
+                    <label key={cat} className={cn(
+                      "flex items-center gap-3 p-3 rounded-2xl border-2 cursor-pointer transition-all",
+                      "hover:border-slate-300",
+                      editingNote?.category === cat ? "border-slate-900 bg-slate-900 text-white" : "border-slate-100 bg-slate-50 text-slate-600"
+                    )}>
+                      <input type="radio" name="category" value={cat} defaultChecked={editingNote?.category === cat || (!editingNote && cat === 'Coaching')} className="hidden" />
+                      <span className="text-[10px] font-black uppercase tracking-widest">{cat === 'Coaching' ? 'Latihan' : cat === 'Nutrition' ? 'Nutrisi' : cat === 'Behavior' ? 'Perilaku' : 'Lainnya'}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Judul</label>
+                <input name="title" type="text" defaultValue={editingNote?.title} required placeholder="Contoh: Fokus Power" className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3.5 text-sm font-bold focus:border-slate-900 outline-none transition-all" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Isi Catatan</label>
+                <textarea name="content" defaultValue={editingNote?.content} required rows={4} placeholder="Tulis detail catatan di sini..." className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3.5 text-sm font-bold focus:border-slate-900 outline-none transition-all resize-none" />
+              </div>
+              <div className="pt-4 flex gap-4">
+                <button type="button" onClick={() => setIsNoteModalOpen(false)} className="flex-1 px-6 py-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest transition-all">
+                  Batal
+                </button>
+                <button type="submit" className="flex-1 px-6 py-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-slate-900/20">
+                  Simpan
+                </button>
+              </div>
+            </form>
+          </motion.div>
         </div>
-      </div>
+      )}
+
+      {/* Injury Modal */}
+      {isInjuryModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[120] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden border border-white/20"
+          >
+            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div>
+                <h3 className="text-xl font-black text-slate-900 tracking-tight uppercase">{editingInjury ? 'Edit Data Cedera' : 'Lapor Cedera'}</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Pantau kesehatan dan progres pemulihan</p>
+              </div>
+              <button onClick={() => setIsInjuryModalOpen(false)} className="p-3 hover:bg-slate-200 rounded-2xl transition-colors">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveInjury} className="p-8 space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Jenis Cedera</label>
+                <input name="type" type="text" defaultValue={editingInjury?.type} required placeholder="Contoh: Strain Hamstring" className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3.5 text-sm font-bold focus:border-brand-red outline-none transition-all" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Keparahan</label>
+                  <select name="severity" defaultValue={editingInjury?.severity || 'Ringan'} className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3.5 text-sm font-bold focus:border-brand-red outline-none transition-all">
+                    <option value="Ringan">Ringan</option>
+                    <option value="Sedang">Sedang</option>
+                    <option value="Berat">Berat</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Status</label>
+                  <select name="status" defaultValue={editingInjury?.status || 'Active'} className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3.5 text-sm font-bold focus:border-brand-red outline-none transition-all">
+                    <option value="Active">Aktif</option>
+                    <option value="Recovered">Sembuh</option>
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Catatan Medis</label>
+                <textarea name="notes" defaultValue={editingInjury?.notes} required rows={4} placeholder="Tulis detail cedera dan progres pemulihan..." className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3.5 text-sm font-bold focus:border-brand-red outline-none transition-all resize-none" />
+              </div>
+              <div className="pt-4 flex gap-4">
+                <button type="button" onClick={() => setIsInjuryModalOpen(false)} className="flex-1 px-6 py-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest transition-all">
+                  Batal
+                </button>
+                <button type="submit" className="flex-1 px-6 py-4 rounded-2xl bg-brand-red hover:bg-brand-red-hover text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-brand-red/20">
+                  Simpan
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -918,6 +1493,77 @@ function StatCard({ icon: Icon, label, value, subValue, alert, color, delta }: {
   );
 }
 
+function AssessmentSummaryCard({ title, data, targetWeight, type }: { title: string, data: AssessmentEntry, targetWeight?: number, type: 'current' | 'past' }) {
+  if (!data) return null;
+
+  const isAlert = targetWeight ? Math.abs(data.weight - targetWeight) > 1.5 : false;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 px-2">
+        <div className={cn("w-1 h-3 rounded-full", type === 'current' ? "bg-brand-red/50" : "bg-slate-200")}></div>
+        <h2 className="text-[10px] font-black text-slate-400 tracking-tight uppercase">{title}</h2>
+      </div>
+      
+      <div className={cn(
+        "bg-white rounded-[2rem] p-6 border transition-all shadow-sm relative overflow-hidden",
+        type === 'past' ? "opacity-60 grayscale-[0.5]" : "",
+        isAlert && type === 'current' ? "border-brand-red/30" : "border-slate-200"
+      )}>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              "p-2 rounded-xl",
+              type === 'current' ? "bg-pastel-red text-brand-red" : "bg-slate-100 text-slate-400"
+            )}>
+              <Scale className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Berat Badan</div>
+              <div className="text-2xl font-black text-slate-900">{data.weight} kg</div>
+            </div>
+          </div>
+          {targetWeight && (
+            <div className="text-right">
+              <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Target</div>
+              <div className="text-xs font-black text-slate-600">{targetWeight} kg</div>
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
+            <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Body Fat %</div>
+            <div className="text-sm font-black text-brand-red">{data.bfCaliper}%</div>
+          </div>
+          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
+            <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">In Body %</div>
+            <div className="text-sm font-black text-blue-600">{data.bfInBody}%</div>
+          </div>
+          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
+            <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">LBM (Otot)</div>
+            <div className="text-sm font-black text-emerald-600">{data.lbm} kg</div>
+          </div>
+          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
+            <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">FM (Lemak)</div>
+            <div className="text-sm font-black text-orange-600">{data.fm} kg</div>
+          </div>
+        </div>
+
+        <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-3 h-3 text-slate-400" />
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{data.date}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest">TOT: {data.total}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FlowNode({ icon: Icon, label, sub, color }: { icon: any, label: string, sub: string, color: 'blue' | 'orange' | 'red' | 'green' }) {
   const styles = {
     blue: 'bg-pastel-blue text-blue-600 border-blue-100',
@@ -939,91 +1585,86 @@ function FlowNode({ icon: Icon, label, sub, color }: { icon: any, label: string,
 
 
 function BodyVisualization({ athlete }: { athlete: any }) {
-  const [hoveredPart, setHoveredPart] = useState<string | null>(null);
-
-  const hotspots = [
-    { id: 'head', label: 'Cognitive Status', value: 'Optimal', top: '12%', left: '50%', icon: Activity },
-    { id: 'chest', label: 'Heart Rate', value: '72 bpm', top: '28%', left: '50%', icon: HeartPulse },
-    { id: 'abs', label: 'Core Stability', value: 'Strong', top: '42%', left: '50%', icon: Zap },
-    { id: 'arm-l', label: 'Left Bicep', value: `${(athlete.skeletalMuscleMass * 0.15).toFixed(1)} kg`, top: '32%', left: '30%', icon: Activity },
-    { id: 'arm-r', label: 'Right Bicep', value: `${(athlete.skeletalMuscleMass * 0.15).toFixed(1)} kg`, top: '32%', left: '70%', icon: Activity },
-    { id: 'leg-l', label: 'Left Quad', value: `${(athlete.skeletalMuscleMass * 0.25).toFixed(1)} kg`, top: '65%', left: '42%', icon: Activity },
-    { id: 'leg-r', label: 'Right Quad', value: `${(athlete.skeletalMuscleMass * 0.25).toFixed(1)} kg`, top: '65%', left: '58%', icon: Activity },
-  ];
+  const latestAssessment = athlete.assessmentHistory[0] || {};
 
   return (
-    <div className="relative w-full max-w-[400px] h-[600px] flex items-center justify-center">
+    <div className="relative w-full max-w-[700px] h-[600px] flex items-center justify-center">
+      {/* Height Scale Axis - Moved closer to body to avoid overlapping with text */}
+      <div className="absolute left-[28%] top-1/2 -translate-y-1/2 h-[400px] flex flex-col items-center z-10 pointer-events-none opacity-30">
+        <div className="w-px h-full bg-slate-300 relative">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-px bg-slate-400"></div>
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-2 h-px bg-slate-400"></div>
+        </div>
+        <div className="absolute -top-10 flex flex-col items-center">
+          <span className="text-[10px] font-black text-slate-900">{athlete.height} CM</span>
+          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Tinggi</span>
+        </div>
+      </div>
+
       {/* Anatomical Image */}
-      <div className="relative h-full w-full flex items-center justify-center">
+      <div className="relative h-full w-full flex items-center justify-center z-0">
         <img 
           src="https://i.imgur.com/P0mCrTm.png" 
           alt="Anatomical Mapping" 
-          className="h-full w-auto object-contain drop-shadow-[0_0_30px_rgba(0,0,0,0.1)]"
+          className="h-[550px] w-auto object-contain opacity-90 grayscale-[0.2]"
           referrerPolicy="no-referrer"
         />
-        
-        {/* Interactive Hotspots */}
-        {hotspots.map(spot => (
-          <div 
-            key={spot.id}
-            className="absolute -translate-x-1/2 -translate-y-1/2 group z-30"
-            style={{ top: spot.top, left: spot.left }}
-            onMouseEnter={() => setHoveredPart(spot.id)}
-            onMouseLeave={() => setHoveredPart(null)}
-          >
-            <div className={cn(
-              "w-5 h-5 rounded-full border-2 border-white shadow-lg transition-all duration-300 cursor-pointer flex items-center justify-center",
-              hoveredPart === spot.id ? "bg-brand-red scale-125" : "bg-blue-500/80 hover:bg-brand-red"
-            )}>
-              <div className="absolute inset-0 rounded-full bg-current animate-ping opacity-20"></div>
-              <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
+      </div>
+
+      {/* Clean Stats Layout - Pushed to the edges to ensure no overlap */}
+      <div className="absolute inset-0 flex justify-between items-center pointer-events-none">
+        {/* Left Column: Physical Basics */}
+        <div className="flex flex-col gap-16 pl-2">
+          <div className="space-y-1">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block">Berat Badan</span>
+            <div className="flex items-baseline gap-1">
+              <span className="text-4xl font-black text-slate-900">{athlete.weight}</span>
+              <span className="text-xs font-bold text-slate-400 uppercase">kg</span>
             </div>
-
-            {/* Floating Tooltip/Card */}
-            <motion.div 
-              initial={{ opacity: 0, y: 10, scale: 0.9 }}
-              animate={{ 
-                opacity: hoveredPart === spot.id ? 1 : 0,
-                y: hoveredPart === spot.id ? 0 : 10,
-                scale: hoveredPart === spot.id ? 1 : 0.9
-              }}
-              className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 pointer-events-none z-50"
-            >
-              <div className="bg-white/95 backdrop-blur-md rounded-2xl p-4 shadow-2xl border border-slate-100 min-w-[160px] flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center">
-                  <spot.icon className="w-5 h-5 text-brand-red" />
-                </div>
-                <div>
-                  <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{spot.label}</div>
-                  <div className="text-xs font-black text-slate-900">{spot.value}</div>
-                </div>
-              </div>
-              <div className="w-3 h-3 bg-white border-r border-b border-slate-100 rotate-45 absolute -bottom-1.5 left-1/2 -translate-x-1/2"></div>
-            </motion.div>
           </div>
-        ))}
-      </div>
+          <div className="space-y-1">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block">Massa Otot</span>
+            <div className="flex items-baseline gap-1">
+              <span className="text-4xl font-black text-emerald-600">{latestAssessment.lbm || 0}</span>
+              <span className="text-xs font-bold text-slate-400 uppercase">kg</span>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block">Umur</span>
+            <div className="flex items-baseline gap-1">
+              <span className="text-4xl font-black text-slate-900">{athlete.age}</span>
+              <span className="text-xs font-bold text-slate-400 uppercase">Thn</span>
+            </div>
+          </div>
+        </div>
 
-      {/* Static Callouts for Key Metrics */}
-      <div className="absolute -left-12 top-1/4 flex flex-col gap-4 z-20">
-        <BodyCallout label="Muscle Mass" value={`${athlete.skeletalMuscleMass} kg`} sub="Skeletal" position="relative" />
-        <BodyCallout label="Body Fat" value={`${athlete.bodyFatInBody}%`} sub="Segmental" position="relative" alert={athlete.bodyFatInBody > 15} />
-      </div>
-
-      <div className="absolute -right-12 bottom-1/4 flex flex-col gap-4 z-20">
-        <BodyCallout label="Weight" value={`${athlete.weight} kg`} sub="Total" position="relative" highlight align="right" />
-        <BodyCallout label="Height" value={`${athlete.height} cm`} sub="Stature" position="relative" highlight align="right" />
-      </div>
-
-      {/* Status Badge */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
-        <div className={cn(
-          "px-8 py-3 rounded-2xl border-2 font-black text-sm uppercase tracking-[0.3em] shadow-2xl backdrop-blur-xl transition-all hover:scale-105 cursor-default",
-          athlete.status === 'Fit' ? "bg-green-500/20 border-green-500/50 text-green-600" :
-          athlete.status === 'Injured' ? "bg-red-500/20 border-red-500/50 text-red-600" :
-          "bg-yellow-500/20 border-yellow-500/50 text-yellow-600"
-        )}>
-          {athlete.status}
+        {/* Right Column: Body Composition */}
+        <div className="flex flex-col gap-16 text-right pr-2">
+          <div className="space-y-1">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block">Lemak Tubuh</span>
+            <div className="flex items-baseline gap-1 justify-end">
+              <span className="text-4xl font-black text-brand-red">{athlete.bodyFatCaliper}</span>
+              <span className="text-xs font-bold text-slate-400 uppercase">%</span>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block">Massa Lemak</span>
+            <div className="flex items-baseline gap-1 justify-end">
+              <span className="text-4xl font-black text-orange-600">{latestAssessment.fm || 0}</span>
+              <span className="text-xs font-bold text-slate-400 uppercase">kg</span>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block">Status Fisik</span>
+            <div className={cn(
+              "px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest inline-block mt-2",
+              athlete.status === 'Fit' ? "bg-green-500/10 text-green-600" :
+              athlete.status === 'Cedera' ? "bg-red-500/10 text-red-600" :
+              "bg-yellow-500/10 text-yellow-600"
+            )}>
+              {athlete.status}
+            </div>
+          </div>
         </div>
       </div>
     </div>

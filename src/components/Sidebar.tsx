@@ -1,4 +1,4 @@
-import { Activity, Users, Utensils, HeartPulse, Stethoscope, BarChart3, LayoutDashboard, LogOut, ChevronRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Users, LogOut, ChevronRight, PanelLeftClose, PanelLeftOpen, LayoutDashboard, Activity } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState } from 'react';
@@ -12,12 +12,9 @@ export function Sidebar({ currentView, setCurrentView }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'directory', label: 'Athletes', icon: Users },
-    { id: 'nutrition', label: 'Nutrition', icon: Utensils },
-    { id: 'health', label: 'Health', icon: HeartPulse },
-    { id: 'injury', label: 'Injury', icon: Stethoscope },
-    { id: 'reports', label: 'Analytics', icon: BarChart3 },
+    { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
+    { id: 'directory', label: 'Atlet', icon: Users },
+    { id: 'assessments', label: 'Asesmen', icon: Activity },
   ];
 
   return (
@@ -71,7 +68,7 @@ export function Sidebar({ currentView, setCurrentView }: SidebarProps) {
 
       {/* Navigation */}
       <div className={cn("px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-2 transition-all", isCollapsed ? "text-center px-0 opacity-0" : "opacity-100")}>
-        Main Interface
+        Antarmuka Utama
       </div>
 
       <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto no-scrollbar">
@@ -130,7 +127,7 @@ export function Sidebar({ currentView, setCurrentView }: SidebarProps) {
                 className="flex flex-col min-w-0"
               >
                 <span className="font-bold text-sm text-slate-900 truncate">Dr. Laila</span>
-                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Lead Sports Nutritionist</span>
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Ahli Gizi Olahraga Utama</span>
               </motion.div>
             )}
           </div>
@@ -141,7 +138,7 @@ export function Sidebar({ currentView, setCurrentView }: SidebarProps) {
               className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-900 text-xs font-bold transition-all border border-slate-200 shadow-sm"
             >
               <LogOut className="w-3.5 h-3.5" />
-              Sign Out
+              Keluar
             </motion.button>
           )}
           {isCollapsed && (

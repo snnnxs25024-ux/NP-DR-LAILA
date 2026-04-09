@@ -1,24 +1,39 @@
-import { Activity, AlertTriangle, CheckCircle2, Droplets, Scale, TrendingUp, Users, ArrowUpRight, Calendar, Download } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Activity, AlertTriangle, CheckCircle2, Droplets, Scale, TrendingUp, Users, ArrowUpRight, Calendar, Download, X, BarChart3 } from 'lucide-react';
 import { athletes } from '../data/mockData';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { downloadCSV } from '../lib/exportUtils';
 
 export function Dashboard() {
-  const injuredCount = athletes.filter(a => a.status === 'Injured').length;
-  const recoveryCount = athletes.filter(a => a.status === 'Recovery').length;
+  const [isAlertsModalOpen, setIsAlertsModalOpen] = useState(false);
+
+  useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsAlertsModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => {
+      window.removeEventListener('keydown', handleEsc);
+    };
+  }, []);
+
+  const injuredCount = athletes.filter(a => a.status === 'Cedera').length;
+  const recoveryCount = athletes.filter(a => a.status === 'Pemulihan').length;
   const avgCompliance = Math.round(athletes.reduce((acc, curr) => acc + curr.compliance, 0) / athletes.length);
   const weightAlerts = athletes.filter(a => Math.abs(a.weight - a.targetWeight) > 1.5).length;
 
   const handleDownloadSummary = () => {
     const summaryData = [{
-      Date: 'April 03, 2026',
-      TotalAthletes: athletes.length,
-      InjuredOrRecovery: injuredCount + recoveryCount,
-      AvgCompliance: `${avgCompliance}%`,
-      WeightAlerts: weightAlerts
+      Tanggal: '03 April 2026',
+      TotalAtlet: athletes.length,
+      CederaAtauPemulihan: injuredCount + recoveryCount,
+      RataRataKepatuhan: `${avgCompliance}%`,
+      PeringatanBerat: weightAlerts
     }];
-    downloadCSV(summaryData, 'Dashboard_Summary_Report');
+    downloadCSV(summaryData, 'Laporan_Ringkasan_Dashboard');
   };
 
   const container = {
@@ -45,11 +60,11 @@ export function Dashboard() {
     >
       <div className="flex items-end justify-between">
         <div>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tight">Performance Overview</h1>
+          <h1 className="text-4xl font-black text-slate-900 tracking-tight">Ringkasan Performa</h1>
           <p className="text-slate-500 text-sm mt-1 font-semibold flex items-center gap-2">
-            Welcome back, Dr. Laila
+            Selamat datang kembali, Dr. Laila
             <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-            <span className="text-brand-red">Lead Nutritionist</span>
+            <span className="text-brand-red">Ahli Gizi Utama</span>
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -58,11 +73,11 @@ export function Dashboard() {
             className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 px-5 py-2.5 rounded-xl border border-slate-200 shadow-sm transition-all text-xs font-bold"
           >
             <Download className="w-4 h-4" />
-            Export Summary
+            Ekspor Ringkasan
           </button>
           <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 px-5 py-2.5 rounded-xl shadow-lg shadow-slate-900/10">
             <Calendar className="w-4 h-4 text-brand-red" />
-            <span className="text-xs font-black text-white uppercase tracking-widest">April 03, 2026</span>
+            <span className="text-xs font-black text-white uppercase tracking-widest">03 April 2026</span>
           </div>
         </div>
       </div>
@@ -71,38 +86,38 @@ export function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Widget 
           variants={item}
-          title="Active Athletes" 
+          title="Atlet Aktif" 
           value={athletes.length.toString()} 
           icon={Users} 
           trend="+2" 
-          trendLabel="vs last month"
+          trendLabel="vs bulan lalu"
           color="blue" 
         />
         <Widget 
           variants={item}
-          title="Medical Status" 
+          title="Status Medis" 
           value={`${injuredCount + recoveryCount}`} 
           icon={Activity} 
           trend={injuredCount.toString()} 
-          trendLabel="currently injured"
+          trendLabel="sedang cedera"
           color="red" 
         />
         <Widget 
           variants={item}
-          title="Avg Compliance" 
+          title="Rata-rata Kepatuhan" 
           value={`${avgCompliance}%`} 
           icon={CheckCircle2} 
           trend="+5%" 
-          trendLabel="improvement"
+          trendLabel="peningkatan"
           color="green" 
         />
         <Widget 
           variants={item}
-          title="Weight Alerts" 
+          title="Peringatan Berat" 
           value={weightAlerts.toString()} 
           icon={AlertTriangle} 
-          trend="Critical" 
-          trendLabel="needs review"
+          trend="Kritis" 
+          trendLabel="perlu tinjauan"
           color="yellow" 
         />
       </div>
@@ -123,9 +138,9 @@ export function Dashboard() {
                 <div className="w-10 h-10 rounded-xl bg-pastel-orange flex items-center justify-center shadow-inner">
                   <AlertTriangle className="w-5 h-5 text-yellow-600" />
                 </div>
-                Priority Alerts
+                Peringatan Prioritas
               </h2>
-              <span className="px-3 py-1 rounded-full bg-slate-100 text-[10px] font-black text-slate-500 uppercase tracking-widest">Live Feed</span>
+              <span className="px-3 py-1 rounded-full bg-slate-100 text-[10px] font-black text-slate-500 uppercase tracking-widest">Umpan Langsung</span>
             </div>
 
             <div className="space-y-3">
@@ -137,7 +152,7 @@ export function Dashboard() {
                     </div>
                     <div>
                       <div className="text-sm font-black text-slate-900">{athlete.name}</div>
-                      <div className="text-[10px] font-bold text-brand-red uppercase tracking-widest">Low Hydration: {athlete.hydrationLevel}%</div>
+                      <div className="text-[10px] font-bold text-brand-red uppercase tracking-widest">Hidrasi Rendah: {athlete.hydrationLevel}%</div>
                     </div>
                   </div>
                   <ArrowUpRight className="w-4 h-4 text-slate-300 group-hover/item:text-slate-900 transition-colors" />
@@ -151,7 +166,7 @@ export function Dashboard() {
                     </div>
                     <div>
                       <div className="text-sm font-black text-slate-900">{athlete.name}</div>
-                      <div className="text-[10px] font-bold text-yellow-600 uppercase tracking-widest">Weight Dev: {Math.abs(athlete.weight - athlete.targetWeight).toFixed(1)}kg</div>
+                      <div className="text-[10px] font-bold text-yellow-600 uppercase tracking-widest">Deviasi Berat: {Math.abs(athlete.weight - athlete.targetWeight).toFixed(1)}kg</div>
                     </div>
                   </div>
                   <ArrowUpRight className="w-4 h-4 text-slate-300 group-hover/item:text-slate-900 transition-colors" />
@@ -159,8 +174,11 @@ export function Dashboard() {
               ))}
             </div>
             
-            <button className="w-full mt-6 py-3.5 rounded-xl bg-slate-900 hover:bg-brand-red text-white text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-slate-900/10 hover:shadow-brand-red/20">
-              View All System Alerts
+            <button 
+              onClick={() => setIsAlertsModalOpen(true)}
+              className="w-full mt-6 py-3.5 rounded-xl bg-slate-900 hover:bg-brand-red text-white text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-slate-900/10 hover:shadow-brand-red/20"
+            >
+              Lihat Semua Peringatan Sistem
             </button>
           </div>
         </motion.div>
@@ -175,11 +193,11 @@ export function Dashboard() {
               <div className="w-10 h-10 rounded-xl bg-pastel-blue flex items-center justify-center shadow-inner">
                 <TrendingUp className="w-5 h-5 text-blue-600" />
               </div>
-              Performance Trends
+              Tren Performa
             </h2>
             <div className="flex gap-2 p-1 bg-slate-100 rounded-xl">
-              <button className="px-5 py-2 rounded-lg bg-white shadow-sm text-[10px] font-black text-slate-900 uppercase tracking-widest">Weekly</button>
-              <button className="px-5 py-2 rounded-lg text-[10px] font-black text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-widest">Monthly</button>
+              <button className="px-5 py-2 rounded-lg bg-white shadow-sm text-[10px] font-black text-slate-900 uppercase tracking-widest">Mingguan</button>
+              <button className="px-5 py-2 rounded-lg text-[10px] font-black text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-widest">Bulanan</button>
             </div>
           </div>
 
@@ -187,31 +205,85 @@ export function Dashboard() {
             <div className="md:col-span-2 h-72 rounded-3xl border border-slate-200 border-dashed flex flex-col items-center justify-center text-slate-400 bg-slate-50/50 group/chart relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-transparent via-slate-100/30 to-transparent opacity-0 group-hover/chart:opacity-100 transition-opacity duration-700"></div>
               <BarChart3 className="w-12 h-12 mb-4 opacity-20 group-hover/chart:scale-110 transition-transform duration-500" />
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40">Compliance Analytics Active</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40">Analitik Kepatuhan Aktif</span>
             </div>
             <div className="space-y-4">
               <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100 hover:border-green-500/20 transition-colors">
-                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Top Performer</div>
+                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Performa Terbaik</div>
                 <div className="text-base font-black text-slate-900">Jonatan Christie</div>
-                <div className="inline-flex items-center px-2 py-0.5 rounded bg-green-100 text-[10px] font-black text-green-700 mt-2 uppercase tracking-widest">98% Compliance</div>
+                <div className="inline-flex items-center px-2 py-0.5 rounded bg-green-100 text-[10px] font-black text-green-700 mt-2 uppercase tracking-widest">Kepatuhan 98%</div>
               </div>
               <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100 hover:border-brand-red/20 transition-colors">
-                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Needs Attention</div>
+                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Perlu Perhatian</div>
                 <div className="text-base font-black text-slate-900">Alwi Farhan</div>
-                <div className="inline-flex items-center px-2 py-0.5 rounded bg-red-100 text-[10px] font-black text-red-700 mt-2 uppercase tracking-widest">78% Compliance</div>
+                <div className="inline-flex items-center px-2 py-0.5 rounded bg-red-100 text-[10px] font-black text-red-700 mt-2 uppercase tracking-widest">Kepatuhan 78%</div>
               </div>
               <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-lg shadow-slate-900/10">
-                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">System Health</div>
-                <div className="text-sm font-black text-white">All Systems Nominal</div>
+                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Kesehatan Sistem</div>
+                <div className="text-sm font-black text-white">Semua Sistem Normal</div>
                 <div className="text-[10px] font-bold text-brand-red mt-2 uppercase tracking-widest flex items-center gap-2">
                   <span className="w-1.5 h-1.5 bg-brand-red rounded-full animate-pulse"></span>
-                  Last Sync: 2m ago
+                  Sinkronisasi Terakhir: 2m lalu
                 </div>
               </div>
             </div>
           </div>
         </motion.div>
       </div>
+
+      {/* Alerts Modal */}
+      <AnimatePresence>
+        {isAlertsModalOpen && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl border border-slate-200"
+            >
+              <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div>
+                  <h3 className="text-2xl font-black text-slate-900 tracking-tight">Semua Peringatan Sistem</h3>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Daftar lengkap anomali data atlet</p>
+                </div>
+                <button onClick={() => setIsAlertsModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-xl transition-colors">
+                  <X className="w-6 h-6 text-slate-400" />
+                </button>
+              </div>
+              
+              <div className="p-8 max-h-[60vh] overflow-y-auto custom-scrollbar space-y-4">
+                {athletes.filter(a => a.hydrationLevel < 90 || Math.abs(a.weight - a.targetWeight) > 1.5).map(athlete => (
+                  <div key={athlete.id} className="p-6 rounded-3xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <img src={athlete.imageUrl} alt="" className="w-12 h-12 rounded-2xl object-cover" />
+                      <div>
+                        <div className="text-base font-black text-slate-900">{athlete.name}</div>
+                        <div className="flex gap-3 mt-1">
+                          {athlete.hydrationLevel < 90 && (
+                            <span className="text-[10px] font-black text-brand-red uppercase tracking-widest">Hidrasi: {athlete.hydrationLevel}%</span>
+                          )}
+                          {Math.abs(athlete.weight - athlete.targetWeight) > 1.5 && (
+                            <span className="text-[10px] font-black text-yellow-600 uppercase tracking-widest">Berat: {athlete.weight}kg (Target: {athlete.targetWeight}kg)</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="px-4 py-2 rounded-xl bg-white border border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      Perlu Tinjauan
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end">
+                <button onClick={() => setIsAlertsModalOpen(false)} className="px-8 py-3 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-slate-900/20">
+                  Tutup
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
@@ -254,5 +326,5 @@ function Widget({ title, value, icon: Icon, trend, trendLabel, color, variants }
 }
 
 // Need to import BarChart3 since it's used
-import { BarChart3 } from 'lucide-react';
+// Already imported at top
 

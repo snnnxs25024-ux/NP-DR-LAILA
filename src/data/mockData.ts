@@ -1,7 +1,38 @@
 export type Division = 'U-13' | 'U-15' | 'U-17' | 'U-19' | 'Senior';
-export type Sector = "Men's Singles" | "Women's Singles" | "Men's Doubles" | "Women's Doubles" | "Mixed Doubles";
-export type Status = 'Fit' | 'Injured' | 'Recovery';
-export type AlertLevel = 'Green' | 'Yellow' | 'Red';
+export type Sector = "Tunggal Putra" | "Tunggal Putri" | "Ganda Putra" | "Ganda Putri" | "Ganda Campuran";
+export type Status = 'Fit' | 'Cedera' | 'Pemulihan';
+export type AlertLevel = 'Hijau' | 'Kuning' | 'Merah';
+
+export interface AssessmentEntry {
+  date: string;
+  bfInBody: number;
+  bicep: number;
+  tricep: number;
+  subscapula: number;
+  abdominal: number;
+  total: number;
+  bfCaliper: number;
+  weight: number;
+  lbm: number;
+  fm: number;
+}
+
+export interface NoteEntry {
+  id: string;
+  date: string;
+  title: string;
+  content: string;
+  category: 'Coaching' | 'Nutrition' | 'Behavior' | 'Other';
+}
+
+export interface InjuryEntry {
+  id: string;
+  date: string;
+  type: string;
+  severity: 'Ringan' | 'Sedang' | 'Berat';
+  status: 'Active' | 'Recovered';
+  notes: string;
+}
 
 export interface Athlete {
   id: string;
@@ -23,8 +54,8 @@ export interface Athlete {
   gender: 'Laki-laki' | 'Perempuan';
   height: number;
   armCircumference: number;
-  category: string;
-  idealWeightRange: string;
+  armCircumferenceCategory: string;
+  armCircumferenceRangeBB: string;
   bodyFatCaliper: number;
   bodyFatInBody: number;
   targetBodyFat: number;
@@ -60,6 +91,9 @@ export interface Athlete {
     relation: string;
     phone: string;
   };
+  assessmentHistory: AssessmentEntry[];
+  notes: NoteEntry[];
+  injuries: InjuryEntry[];
 }
 
 export const athletes: Athlete[] = [
@@ -67,7 +101,7 @@ export const athletes: Athlete[] = [
     id: '1',
     name: 'Jonatan Christie',
     division: 'Senior',
-    sector: "Men's Singles",
+    sector: "Tunggal Putra",
     weight: 76.5,
     targetWeight: 76.0,
     status: 'Fit',
@@ -82,8 +116,8 @@ export const athletes: Athlete[] = [
     gender: 'Laki-laki',
     height: 179,
     armCircumference: 32,
-    category: 'Ideal (Atlet)',
-    idealWeightRange: '74 - 78 kg',
+    armCircumferenceCategory: 'BESAR',
+    armCircumferenceRangeBB: '70-79',
     bodyFatCaliper: 9.5,
     bodyFatInBody: 10.2,
     targetBodyFat: 9.0,
@@ -104,16 +138,49 @@ export const athletes: Athlete[] = [
     joinYear: 2013,
     apparelSize: { shirt: 'L', shoe: 43 },
     socialMedia: { instagram: '@jonatanchristieofficial' },
-    emergencyContact: { name: 'Marlanti', relation: 'Ibu', phone: '+628111222333' }
+    emergencyContact: { name: 'Marlanti', relation: 'Ibu', phone: '+628111222333' },
+    assessmentHistory: [
+      {
+        date: '08 APR 26',
+        bfInBody: 10.1,
+        bicep: 3,
+        tricep: 5,
+        subscapula: 6.8,
+        abdominal: 5.8,
+        total: 20.6,
+        bfCaliper: 9.2,
+        weight: 76.2,
+        lbm: 69.2,
+        fm: 7.0
+      },
+      {
+        date: '15 OKT 25',
+        bfInBody: 10.2,
+        bicep: 3,
+        tricep: 5,
+        subscapula: 7,
+        abdominal: 6,
+        total: 21,
+        bfCaliper: 9.5,
+        weight: 76.5,
+        lbm: 69.2,
+        fm: 7.3
+      }
+    ],
+    notes: [
+      { id: 'n1', date: '01 APR 26', title: 'Fokus Power', content: 'Latihan beban fokus pada ledakan otot kaki ditingkatkan.', category: 'Coaching' },
+      { id: 'n2', date: '05 APR 26', title: 'Diet Karbo', content: 'Asupan karbohidrat kompleks ditingkatkan sebelum sesi latihan sore.', category: 'Nutrition' }
+    ],
+    injuries: []
   },
   {
     id: '2',
     name: 'Anthony Sinisuka Ginting',
     division: 'Senior',
-    sector: "Men's Singles",
+    sector: "Tunggal Putra",
     weight: 66.2,
     targetWeight: 66.0,
-    status: 'Recovery',
+    status: 'Pemulihan',
     hydrationLevel: 88,
     sleepHours: 7.5,
     rpe: 4,
@@ -125,8 +192,8 @@ export const athletes: Athlete[] = [
     gender: 'Laki-laki',
     height: 171,
     armCircumference: 29,
-    category: 'Ideal (Atlet)',
-    idealWeightRange: '64 - 68 kg',
+    armCircumferenceCategory: 'SEDANG',
+    armCircumferenceRangeBB: '60-69',
     bodyFatCaliper: 8.8,
     bodyFatInBody: 9.5,
     targetBodyFat: 8.5,
@@ -147,13 +214,45 @@ export const athletes: Athlete[] = [
     joinYear: 2014,
     apparelSize: { shirt: 'M', shoe: 41 },
     socialMedia: { instagram: '@sinisukanthony' },
-    emergencyContact: { name: 'Lucia', relation: 'Ibu', phone: '+62822333444' }
+    emergencyContact: { name: 'Lucia', relation: 'Ibu', phone: '+62822333444' },
+    assessmentHistory: [
+      {
+        date: '08 APR 26',
+        bfInBody: 9.4,
+        bicep: 2,
+        tricep: 4,
+        subscapula: 5.8,
+        abdominal: 4.8,
+        total: 16.6,
+        bfCaliper: 8.6,
+        weight: 66.0,
+        lbm: 60.3,
+        fm: 5.7
+      },
+      {
+        date: '10 OKT 25',
+        bfInBody: 9.5,
+        bicep: 2,
+        tricep: 4,
+        subscapula: 6,
+        abdominal: 5,
+        total: 17,
+        bfCaliper: 8.8,
+        weight: 66.2,
+        lbm: 60.4,
+        fm: 5.8
+      }
+    ],
+    notes: [],
+    injuries: [
+      { id: 'i1', date: '02 APR 26', type: 'Strain Hamstring', severity: 'Sedang', status: 'Active', notes: 'Terjadi saat sesi latihan sprint. Sedang dalam fase fisioterapi.' }
+    ]
   },
   {
     id: '3',
     name: 'Kevin Sanjaya',
     division: 'Senior',
-    sector: "Men's Doubles",
+    sector: "Ganda Putra",
     weight: 65.0,
     targetWeight: 64.5,
     status: 'Fit',
@@ -168,8 +267,8 @@ export const athletes: Athlete[] = [
     gender: 'Laki-laki',
     height: 170,
     armCircumference: 28.5,
-    category: 'Ideal (Atlet)',
-    idealWeightRange: '63 - 67 kg',
+    armCircumferenceCategory: 'SEDANG',
+    armCircumferenceRangeBB: '60-69',
     bodyFatCaliper: 10.1,
     bodyFatInBody: 11.0,
     targetBodyFat: 9.5,
@@ -190,13 +289,45 @@ export const athletes: Athlete[] = [
     joinYear: 2013,
     apparelSize: { shirt: 'M', shoe: 41 },
     socialMedia: { instagram: '@kevin_sanjaya' },
-    emergencyContact: { name: 'Sugiarto', relation: 'Ayah', phone: '+62833444555' }
+    emergencyContact: { name: 'Sugiarto', relation: 'Ayah', phone: '+62833444555' },
+    assessmentHistory: [
+      {
+        date: '08 APR 26',
+        bfInBody: 10.8,
+        bicep: 3,
+        tricep: 5.8,
+        subscapula: 7.8,
+        abdominal: 6.8,
+        total: 23.4,
+        bfCaliper: 9.8,
+        weight: 64.8,
+        lbm: 58.4,
+        fm: 6.4
+      },
+      {
+        date: '05 OKT 25',
+        bfInBody: 11.0,
+        bicep: 3,
+        tricep: 6,
+        subscapula: 8,
+        abdominal: 7,
+        total: 24,
+        bfCaliper: 10.1,
+        weight: 65.0,
+        lbm: 58.4,
+        fm: 6.6
+      }
+    ],
+    notes: [
+      { id: 'n3', date: '03 APR 26', title: 'Disiplin Tidur', content: 'Jam tidur sudah mulai konsisten 8 jam per hari.', category: 'Behavior' }
+    ],
+    injuries: []
   },
   {
     id: '4',
     name: 'Gregoria Mariska',
     division: 'Senior',
-    sector: "Women's Singles",
+    sector: "Tunggal Putri",
     weight: 58.5,
     targetWeight: 58.0,
     status: 'Fit',
@@ -211,8 +342,8 @@ export const athletes: Athlete[] = [
     gender: 'Perempuan',
     height: 166,
     armCircumference: 25,
-    category: 'Ideal (Atlet)',
-    idealWeightRange: '56 - 60 kg',
+    armCircumferenceCategory: 'SEDANG',
+    armCircumferenceRangeBB: '50-59',
     bodyFatCaliper: 16.5,
     bodyFatInBody: 17.2,
     targetBodyFat: 16.0,
@@ -223,7 +354,7 @@ export const athletes: Athlete[] = [
     dailyCalories: 2300,
     foodAllergies: [],
     foodPreferences: ['Banyak Sayur'],
-    supplements: ['Iron', 'Calcium', 'Vit D', 'Whey Isolate'],
+    supplements: ['Zat Besi', 'Kalsium', 'Vit D', 'Whey Isolate'],
     bloodLab: { hb: 13.5, ferritin: 60, vitD: 32 },
     sweatRate: 0.9,
     whatsapp: '+6281456789012',
@@ -233,13 +364,43 @@ export const athletes: Athlete[] = [
     joinYear: 2015,
     apparelSize: { shirt: 'S', shoe: 39 },
     socialMedia: { instagram: '@gregoriamrska' },
-    emergencyContact: { name: 'Fransiska', relation: 'Ibu', phone: '+62844555666' }
+    emergencyContact: { name: 'Fransiska', relation: 'Ibu', phone: '+62844555666' },
+    assessmentHistory: [
+      {
+        date: '08 APR 26',
+        bfInBody: 17.0,
+        bicep: 4.8,
+        tricep: 7.8,
+        subscapula: 9.8,
+        abdominal: 8.8,
+        total: 31.2,
+        bfCaliper: 16.2,
+        weight: 58.2,
+        lbm: 48.8,
+        fm: 9.4
+      },
+      {
+        date: '12 OKT 25',
+        bfInBody: 17.2,
+        bicep: 5,
+        tricep: 8,
+        subscapula: 10,
+        abdominal: 9,
+        total: 32,
+        bfCaliper: 16.5,
+        weight: 58.5,
+        lbm: 48.8,
+        fm: 9.7
+      }
+    ],
+    notes: [],
+    injuries: []
   },
   {
     id: '5',
     name: 'Alwi Farhan',
     division: 'U-19',
-    sector: "Men's Singles",
+    sector: "Tunggal Putra",
     weight: 68.0,
     targetWeight: 70.0,
     status: 'Fit',
@@ -254,8 +415,8 @@ export const athletes: Athlete[] = [
     gender: 'Laki-laki',
     height: 175,
     armCircumference: 27,
-    category: 'Underweight (Atlet)',
-    idealWeightRange: '69 - 73 kg',
+    armCircumferenceCategory: 'KECIL',
+    armCircumferenceRangeBB: '60-69',
     bodyFatCaliper: 8.0,
     bodyFatInBody: 8.5,
     targetBodyFat: 9.0,
@@ -276,16 +437,46 @@ export const athletes: Athlete[] = [
     joinYear: 2021,
     apparelSize: { shirt: 'M', shoe: 42 },
     socialMedia: { instagram: '@alwifarhan' },
-    emergencyContact: { name: 'Budi', relation: 'Ayah', phone: '+62855666777' }
+    emergencyContact: { name: 'Budi', relation: 'Ayah', phone: '+62855666777' },
+    assessmentHistory: [
+      {
+        date: '08 APR 26',
+        bfInBody: 8.4,
+        bicep: 2,
+        tricep: 3.8,
+        subscapula: 4.8,
+        abdominal: 3.8,
+        total: 14.4,
+        bfCaliper: 7.8,
+        weight: 69.5,
+        lbm: 64.1,
+        fm: 5.4
+      },
+      {
+        date: '08 OKT 25',
+        bfInBody: 8.5,
+        bicep: 2,
+        tricep: 4,
+        subscapula: 5,
+        abdominal: 4,
+        total: 15,
+        bfCaliper: 8.0,
+        weight: 68.0,
+        lbm: 62.6,
+        fm: 5.4
+      }
+    ],
+    notes: [],
+    injuries: []
   },
   {
     id: '6',
     name: 'Christian Adinata',
     division: 'Senior',
-    sector: "Men's Singles",
+    sector: "Tunggal Putra",
     weight: 72.1,
     targetWeight: 71.5,
-    status: 'Injured',
+    status: 'Cedera',
     hydrationLevel: 96,
     sleepHours: 9.0,
     rpe: 2,
@@ -297,8 +488,8 @@ export const athletes: Athlete[] = [
     gender: 'Laki-laki',
     height: 183,
     armCircumference: 30,
-    category: 'Ideal (Atlet)',
-    idealWeightRange: '70 - 75 kg',
+    armCircumferenceCategory: 'SEDANG',
+    armCircumferenceRangeBB: '70-79',
     bodyFatCaliper: 11.0,
     bodyFatInBody: 11.8,
     targetBodyFat: 10.5,
@@ -309,7 +500,7 @@ export const athletes: Athlete[] = [
     dailyCalories: 2100, // Deficit to prevent fat gain
     foodAllergies: [],
     foodPreferences: ['Anti-inflamasi'],
-    supplements: ['Collagen', 'Omega-3', 'Vit C', 'Calcium'],
+    supplements: ['Kolagen', 'Omega-3', 'Vit C', 'Kalsium'],
     bloodLab: { hb: 15.5, ferritin: 105, vitD: 50 },
     sweatRate: 0.8,
     whatsapp: '+6281678901234',
@@ -319,7 +510,39 @@ export const athletes: Athlete[] = [
     joinYear: 2018,
     apparelSize: { shirt: 'L', shoe: 44 },
     socialMedia: { instagram: '@christianadinata' },
-    emergencyContact: { name: 'Siti', relation: 'Ibu', phone: '+62866777888' }
+    emergencyContact: { name: 'Siti', relation: 'Ibu', phone: '+62866777888' },
+    assessmentHistory: [
+      {
+        date: '08 APR 26',
+        bfInBody: 11.6,
+        bicep: 3.8,
+        tricep: 5.8,
+        subscapula: 7.8,
+        abdominal: 6.8,
+        total: 24.2,
+        bfCaliper: 10.8,
+        weight: 71.8,
+        lbm: 64.0,
+        fm: 7.8
+      },
+      {
+        date: '20 OKT 25',
+        bfInBody: 11.8,
+        bicep: 4,
+        tricep: 6,
+        subscapula: 8,
+        abdominal: 7,
+        total: 25,
+        bfCaliper: 11.0,
+        weight: 72.1,
+        lbm: 64.2,
+        fm: 7.9
+      }
+    ],
+    notes: [],
+    injuries: [
+      { id: 'i2', date: '15 MAR 26', type: 'ACL Tear', severity: 'Berat', status: 'Active', notes: 'Pasca operasi. Fokus pada penguatan otot sekitar lutut.' }
+    ]
   },
 ];
 
@@ -335,9 +558,9 @@ export const weightHistory = [
 
 export const nutritionBalance = [
   { subject: 'Protein', A: 120, fullMark: 150 },
-  { subject: 'Carbs', A: 98, fullMark: 150 },
-  { subject: 'Fats', A: 86, fullMark: 150 },
-  { subject: 'Hydration', A: 99, fullMark: 150 },
-  { subject: 'Vitamins', A: 85, fullMark: 150 },
-  { subject: 'Minerals', A: 65, fullMark: 150 },
+  { subject: 'Karbohidrat', A: 98, fullMark: 150 },
+  { subject: 'Lemak', A: 86, fullMark: 150 },
+  { subject: 'Hidrasi', A: 99, fullMark: 150 },
+  { subject: 'Vitamin', A: 85, fullMark: 150 },
+  { subject: 'Mineral', A: 65, fullMark: 150 },
 ];
