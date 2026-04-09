@@ -196,27 +196,29 @@ export function Assessments() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 p-8 overflow-hidden">
+    <div className="h-full flex flex-col bg-slate-50 p-4 md:p-8 overflow-hidden">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6 mb-6 md:mb-8">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tight">Batch Assessment</h1>
-          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">Input data komposisi tubuh secara massal</p>
+          <h1 className="text-2xl md:text-3xl font-black text-slate-900 uppercase tracking-tight">Batch Assessment</h1>
+          <p className="text-[10px] md:text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">Input data komposisi tubuh secara massal</p>
         </div>
         
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={downloadTemplate}
-            className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
-          >
-            <Download className="w-4 h-4" /> Download Template
-          </button>
-          <button 
-            onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
-          >
-            <Upload className="w-4 h-4" /> Upload Excel (.xlsx)
-          </button>
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-3">
+          <div className="flex gap-2">
+            <button 
+              onClick={downloadTemplate}
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 md:px-6 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
+            >
+              <Download className="w-4 h-4" /> <span className="hidden md:inline">Download Template</span><span className="md:hidden">Template</span>
+            </button>
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 md:px-6 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
+            >
+              <Upload className="w-4 h-4" /> <span className="hidden md:inline">Upload Excel (.xlsx)</span><span className="md:hidden">Upload</span>
+            </button>
+          </div>
           <input 
             type="file" 
             ref={fileInputRef} 
@@ -228,7 +230,7 @@ export function Assessments() {
             onClick={handleSaveAll}
             disabled={Object.keys(batchData).length === 0 || isSaving}
             className={cn(
-              "flex items-center gap-2 px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg",
+              "flex items-center justify-center gap-2 px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg",
               Object.keys(batchData).length === 0 || isSaving
                 ? "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
                 : "bg-slate-900 text-white hover:bg-slate-800 shadow-slate-900/20"

@@ -745,27 +745,27 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
       )}
 
       {/* Header Section */}
-      <div id="athlete-profile-content" className="p-8 space-y-8 bg-white">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 no-print">
-        <div className="flex items-center gap-6">
+      <div id="athlete-profile-content" className="p-4 md:p-8 space-y-6 md:space-y-8 bg-white">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 md:gap-6 no-print">
+        <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-6">
           <button 
             onClick={onBack}
-            className="p-3 bg-white hover:bg-slate-50 text-slate-400 hover:text-slate-600 rounded-2xl transition-all border border-slate-200 shadow-sm"
+            className="self-start md:self-auto p-3 bg-white hover:bg-slate-50 text-slate-400 hover:text-slate-600 rounded-2xl transition-all border border-slate-200 shadow-sm"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-4 md:gap-5">
             <div className="relative">
-              <img src={athlete.imageUrl} alt={athlete.name} className="w-20 h-20 rounded-3xl border-2 border-slate-100 object-cover shadow-lg" />
+              <img src={athlete.imageUrl} alt={athlete.name} className="w-16 h-16 md:w-20 md:h-20 rounded-3xl border-2 border-slate-100 object-cover shadow-lg" />
               <div className={cn(
-                "absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-4 border-white",
+                "absolute -bottom-1 -right-1 w-5 h-5 md:w-6 md:h-6 rounded-full border-4 border-white",
                 athlete.status === 'Fit' ? "bg-green-500" : 
                 athlete.status === 'Cedera' ? "bg-red-500" : "bg-yellow-500"
               )}></div>
             </div>
             <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-4xl font-black text-slate-900 tracking-tight uppercase">{athlete.name}</h1>
+              <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                <h1 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight uppercase">{athlete.name}</h1>
                 <span className={cn(
                   "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border",
                   athlete.status === 'Fit' ? "bg-green-500/10 text-green-600 border-green-500/20" : 
@@ -775,8 +775,8 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                   {athlete.status}
                 </span>
               </div>
-              <div className="flex items-center gap-3 mt-1.5">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">Kategori {athlete.division}</span>
+              <div className="flex items-center gap-2 md:gap-3 mt-1.5">
+                <span className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">Kategori {athlete.division}</span>
                 <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
                 <span className="text-[10px] font-black text-brand-red uppercase tracking-widest">Pelatnas PBSI</span>
               </div>
@@ -784,47 +784,52 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 no-print">
+        <div className="flex flex-wrap items-center gap-2 md:gap-3 no-print">
           <button 
             onClick={() => setIsEditProfileModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-900 text-xs font-bold border border-slate-200 transition-all shadow-sm"
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-900 text-xs font-bold border border-slate-200 transition-all shadow-sm"
           >
             <Edit2 className="w-4 h-4" />
-            Edit Profil
+            <span className="hidden md:inline">Edit Profil</span>
+            <span className="md:hidden">Edit</span>
           </button>
           <button 
             onClick={() => setIsInputModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-lg shadow-slate-900/20"
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-lg shadow-slate-900/20"
           >
             <Plus className="w-4 h-4" />
-            Input Asesmen
+            <span className="hidden md:inline">Input Asesmen</span>
+            <span className="md:hidden">Input</span>
           </button>
           <button 
             onClick={() => setIsShareModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-all shadow-lg shadow-emerald-500/20"
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-all shadow-lg shadow-emerald-500/20"
           >
             <Share2 className="w-4 h-4" />
-            Kirim Hasil
+            <span className="hidden md:inline">Kirim Hasil</span>
+            <span className="md:hidden">Kirim</span>
           </button>
           <button 
             onClick={triggerPrint}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-900 text-xs font-bold border border-slate-200 transition-all shadow-sm"
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-900 text-xs font-bold border border-slate-200 transition-all shadow-sm"
           >
             <Printer className="w-4 h-4" />
-            Cetak
+            <span className="hidden md:inline">Cetak</span>
+            <span className="md:hidden">Cetak</span>
           </button>
           <button 
             onClick={handleExport}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-red hover:bg-brand-red-hover text-white text-xs font-bold transition-all shadow-lg shadow-brand-red/20"
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-red hover:bg-brand-red-hover text-white text-xs font-bold transition-all shadow-lg shadow-brand-red/20"
           >
             <Download className="w-4 h-4" />
-            Ekspor
+            <span className="hidden md:inline">Ekspor</span>
+            <span className="md:hidden">Ekspor</span>
           </button>
         </div>
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex items-center gap-8 border-b border-slate-100 no-print">
+      <div className="flex items-center gap-4 md:gap-8 border-b border-slate-100 no-print overflow-x-auto custom-scrollbar">
         <button 
           onClick={() => setActiveTab('overview')}
           className={cn(

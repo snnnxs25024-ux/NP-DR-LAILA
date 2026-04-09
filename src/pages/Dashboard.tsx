@@ -56,34 +56,35 @@ export function Dashboard() {
       variants={container}
       initial="hidden"
       animate="show"
-      className="p-8 space-y-8 h-full overflow-y-auto custom-scrollbar bg-grid-slate-100"
+      className="p-4 md:p-8 space-y-6 md:space-y-8 h-full overflow-y-auto custom-scrollbar bg-grid-slate-100"
     >
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tight">Ringkasan Performa</h1>
-          <p className="text-slate-500 text-sm mt-1 font-semibold flex items-center gap-2">
+          <h1 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight">Ringkasan Performa</h1>
+          <p className="text-slate-500 text-xs md:text-sm mt-1 font-semibold flex items-center gap-2">
             Selamat datang kembali, Dr. Laila
             <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
             <span className="text-brand-red">Ahli Gizi Utama</span>
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3">
           <button 
             onClick={handleDownloadSummary}
-            className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 px-5 py-2.5 rounded-xl border border-slate-200 shadow-sm transition-all text-xs font-bold"
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 px-4 md:px-5 py-2.5 rounded-xl border border-slate-200 shadow-sm transition-all text-xs font-bold"
           >
             <Download className="w-4 h-4" />
-            Ekspor Ringkasan
+            <span className="hidden md:inline">Ekspor Ringkasan</span>
+            <span className="md:hidden">Ekspor</span>
           </button>
-          <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 px-5 py-2.5 rounded-xl shadow-lg shadow-slate-900/10">
+          <div className="flex-1 md:flex-none flex items-center justify-center gap-2 md:gap-3 bg-slate-900 border border-slate-800 px-4 md:px-5 py-2.5 rounded-xl shadow-lg shadow-slate-900/10">
             <Calendar className="w-4 h-4 text-brand-red" />
-            <span className="text-xs font-black text-white uppercase tracking-widest">03 April 2026</span>
+            <span className="text-[10px] md:text-xs font-black text-white uppercase tracking-widest whitespace-nowrap">03 April 2026</span>
           </div>
         </div>
       </div>
 
       {/* Bento Grid Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <Widget 
           variants={item}
           title="Atlet Aktif" 
@@ -306,20 +307,20 @@ function Widget({ title, value, icon: Icon, trend, trendLabel, color, variants }
   return (
     <motion.div 
       variants={variants}
-      className="bg-white rounded-3xl p-6 border border-slate-200 flex flex-col relative overflow-hidden group hover:border-brand-red/20 transition-all shadow-sm"
+      className="bg-white rounded-2xl md:rounded-3xl p-4 md:p-6 border border-slate-200 flex flex-col relative overflow-hidden group hover:border-brand-red/20 transition-all shadow-sm"
     >
-      <div className="flex justify-between items-start mb-6">
-        <div className={cn("p-3 rounded-2xl border transition-transform group-hover:scale-110 duration-500", colorStyles[color])}>
-          <Icon className="w-6 h-6" />
+      <div className="flex justify-between items-start mb-4 md:mb-6">
+        <div className={cn("p-2 md:p-3 rounded-xl md:rounded-2xl border transition-transform group-hover:scale-110 duration-500", colorStyles[color])}>
+          <Icon className="w-4 h-4 md:w-6 md:h-6" />
         </div>
         <div className="flex flex-col items-end">
-          <span className={cn("text-xs font-extrabold tracking-tight", trendColors[color])}>{trend}</span>
-          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{trendLabel}</span>
+          <span className={cn("text-[10px] md:text-xs font-extrabold tracking-tight", trendColors[color])}>{trend}</span>
+          <span className="text-[7px] md:text-[8px] font-bold text-slate-400 uppercase tracking-widest">{trendLabel}</span>
         </div>
       </div>
       <div>
-        <div className="text-4xl font-black text-slate-900 mb-1 tracking-tight">{value}</div>
-        <div className="text-xs font-bold text-slate-500 uppercase tracking-[0.15em]">{title}</div>
+        <div className="text-2xl md:text-4xl font-black text-slate-900 mb-1 tracking-tight">{value}</div>
+        <div className="text-[8px] md:text-xs font-bold text-slate-500 uppercase tracking-[0.15em]">{title}</div>
       </div>
     </motion.div>
   );
