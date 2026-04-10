@@ -1,4 +1,4 @@
-import { Users, LogOut, ChevronRight, PanelLeftClose, PanelLeftOpen, LayoutDashboard, Activity } from 'lucide-react';
+import { Users, LogOut, ChevronRight, PanelLeftClose, PanelLeftOpen, LayoutDashboard, Activity, ClipboardList } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState } from 'react';
@@ -15,6 +15,7 @@ export function Sidebar({ currentView, setCurrentView }: SidebarProps) {
     { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
     { id: 'directory', label: 'Atlet', icon: Users },
     { id: 'assessments', label: 'Asesmen', icon: Activity },
+    { id: 'clinical-recap', label: 'Rekap Klinis', icon: ClipboardList },
   ];
 
   return (

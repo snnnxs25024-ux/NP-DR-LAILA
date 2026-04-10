@@ -9,6 +9,7 @@ import { Dashboard } from './pages/Dashboard';
 import { AthleteDirectory } from './pages/AthleteDirectory';
 import { AthleteProfile } from './pages/AthleteProfile';
 import { Assessments } from './pages/Assessments';
+import { ClinicalRecap } from './pages/ClinicalRecap';
 
 export default function App() {
   const [currentView, setCurrentView] = useState('dashboard');
@@ -32,6 +33,8 @@ export default function App() {
         return <AthleteDirectory onSelectAthlete={handleSelectAthlete} />;
       case 'assessments':
         return <Assessments />;
+      case 'clinical-recap':
+        return <ClinicalRecap />;
       case 'profile':
         if (selectedAthleteId) {
           return <AthleteProfile athleteId={selectedAthleteId} onBack={handleBackToDirectory} />;
