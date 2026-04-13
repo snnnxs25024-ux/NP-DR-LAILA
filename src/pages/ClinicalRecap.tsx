@@ -88,81 +88,34 @@ export function ClinicalRecap() {
           <table className="w-full text-[10px] border-collapse clinical-table">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
-                <th rowSpan={2} className="p-2 border border-slate-200 text-center font-black uppercase sticky left-0 bg-slate-50 z-20">NO</th>
-                <th rowSpan={2} className="p-2 border border-slate-200 text-left font-black uppercase sticky left-[41px] bg-slate-50 z-20 min-w-[150px]">NAMA</th>
-                <th rowSpan={2} className="p-2 border border-slate-200 text-center font-black uppercase min-w-[100px]">TGL LAHIR</th>
-                <th rowSpan={2} className="p-2 border border-slate-200 text-center font-black uppercase">L/P</th>
-                <th className="p-1 border border-slate-200 text-center font-black uppercase bg-slate-100/50">UMUR</th>
-                <th className="p-1 border border-slate-200 text-center font-black uppercase bg-slate-100/50">TB</th>
-                <th className="p-1 border border-slate-200 text-center font-black uppercase bg-slate-100/50">BB</th>
-                <th className="p-1 border border-slate-200 text-center font-black uppercase bg-slate-100/50">BB IDEAL</th>
-                <th colSpan={3} className="p-1 border border-slate-200 text-center font-black uppercase bg-blue-50">LINGKAR TANGAN</th>
-                <th className="p-1 border border-slate-200 text-center font-black uppercase bg-slate-100/50">BB</th>
-                <th className="p-1 border border-slate-200 text-center font-black uppercase bg-slate-100/50">TARGET BB</th>
-                <th className="p-1 border border-slate-200 text-center font-black uppercase bg-emerald-50">BF - IN BODY</th>
-                <th colSpan={6} className="p-1 border border-slate-200 text-center font-black uppercase bg-rose-50">BF - KALIPER</th>
-                <th rowSpan={2} className="p-2 border border-slate-200 text-center font-black uppercase bg-rose-50/30 min-w-[80px]">TARGET BF</th>
-                <th className="p-1 border border-slate-200 text-center font-black uppercase bg-amber-50">EXERCISE</th>
-                <th className="p-1 border border-slate-200 text-center font-black uppercase bg-amber-50">PRESENT</th>
-                <th className="p-1 border border-slate-200 text-center font-black uppercase bg-amber-50">DAILY</th>
-              </tr>
-              <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="p-1 border border-slate-200 text-center font-bold text-slate-500">(thn)</th>
-                <th className="p-1 border border-slate-200 text-center font-bold text-slate-500">(cm)</th>
-                <th className="p-1 border border-slate-200 text-center font-bold text-slate-500">(kg)</th>
-                <th className="p-1 border border-slate-200 text-center font-bold text-slate-500">(kg)</th>
-                <th className="p-1 border border-slate-200 text-center font-bold text-slate-500 bg-blue-50/50">NILAI</th>
-                <th className="p-1 border border-slate-200 text-center font-bold text-slate-500 bg-blue-50/50">KATEGORI</th>
-                <th className="p-1 border border-slate-200 text-center font-bold text-slate-500 bg-blue-50/50">RANGE BB</th>
-                <th className="p-1 border border-slate-200 text-center font-bold text-slate-500">TERBARU</th>
-                <th className="p-1 border border-slate-200 text-center font-bold text-slate-500">(kg)</th>
-                <th className="p-1 border border-slate-200 text-center font-bold text-slate-500 bg-emerald-50/50">(%)</th>
-                <th className="p-1 border border-slate-200 text-center font-bold text-slate-500 bg-rose-50/50">B</th>
-                <th className="p-1 border border-slate-200 text-center font-bold text-slate-500 bg-rose-50/50">T</th>
-                <th className="p-1 border border-slate-200 text-center font-bold text-slate-500 bg-rose-50/50">SC</th>
-                <th className="p-1 border border-slate-200 text-center font-bold text-slate-500 bg-rose-50/50">A</th>
-                <th className="p-1 border border-slate-200 text-center font-bold text-slate-500 bg-rose-50/50">TOT</th>
-                <th className="p-1 border border-slate-200 text-center font-bold text-slate-500 bg-rose-50/50">BF %</th>
-                <th className="p-1 border border-slate-200 text-center font-bold text-slate-500 bg-amber-50/50">CALORIES</th>
-                <th className="p-1 border border-slate-200 text-center font-bold text-slate-500 bg-amber-50/50">ENERGY</th>
-                <th className="p-1 border border-slate-200 text-center font-bold text-slate-500 bg-amber-50/50">CALORIES</th>
+                <th className="p-4 border border-slate-200 text-center font-black uppercase sticky left-0 bg-slate-50 z-20">NO</th>
+                <th className="p-4 border border-slate-200 text-left font-black uppercase sticky left-[41px] bg-slate-50 z-20 min-w-[200px]">NAMA</th>
+                <th className="p-4 border border-slate-200 text-center font-black uppercase bg-slate-100/50">TB (cm)</th>
+                <th className="p-4 border border-slate-200 text-center font-black uppercase bg-slate-100/50">BB (kg)</th>
+                <th className="p-4 border border-slate-200 text-center font-black uppercase bg-blue-50">TARGET BB (kg)</th>
+                <th className="p-4 border border-slate-200 text-center font-black uppercase bg-rose-50">BF KALIPER (%)</th>
+                <th className="p-4 border border-slate-200 text-center font-black uppercase bg-rose-50/30">TARGET BF (%)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredAthletes.map((athlete, index) => {
                 const latestAssessment = athlete.assessmentHistory[0];
-                const idealWeight = calculateIdealWeight(athlete.height);
+                const currentWeight = latestAssessment?.weight || athlete.weight;
+                const currentBF = latestAssessment?.bfCaliper || athlete.bodyFatCaliper;
                 
                 return (
-                  <tr key={athlete.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="p-2 border border-slate-100 text-center font-bold text-slate-400 sticky left-0 bg-white group-hover:bg-slate-50/50 z-10">{index + 1}</td>
-                    <td className="p-2 border border-slate-100 text-left font-black text-slate-900 sticky left-[41px] bg-white group-hover:bg-slate-50/50 z-10">{athlete.name}</td>
-                    <td className="p-2 border border-slate-100 text-center font-bold text-slate-600">{athlete.dateOfBirth}</td>
-                    <td className="p-2 border border-slate-100 text-center font-bold text-slate-600">{athlete.gender === 'Laki-laki' ? 'L' : 'P'}</td>
-                    <td className="p-2 border border-slate-100 text-center font-bold text-slate-900">{athlete.age}</td>
-                    <td className="p-2 border border-slate-100 text-center font-bold text-slate-900">{athlete.height}</td>
-                    <td className="p-2 border border-slate-100 text-center font-bold text-slate-900">{athlete.weight}</td>
-                    <td className="p-2 border border-slate-100 text-center font-bold text-blue-600 bg-blue-50/10">{idealWeight.toFixed(2)}</td>
-                    <td className="p-2 border border-slate-100 text-center font-bold text-slate-900 bg-blue-50/10">{athlete.armCircumference}</td>
-                    <td className="p-2 border border-slate-100 text-center font-bold text-slate-900 bg-blue-50/10">{athlete.armCircumferenceCategory}</td>
-                    <td className="p-2 border border-slate-100 text-center font-bold text-slate-900 bg-blue-50/10">{athlete.armCircumferenceRangeBB}</td>
-                    <td className="p-2 border border-slate-100 text-center font-bold text-slate-900">{latestAssessment?.weight || athlete.weight}</td>
-                    <td className="p-2 border border-slate-100 text-center font-bold text-slate-900">
-                      {getTargetIndicator(athlete.weight, athlete.targetWeight)} {athlete.targetWeight}
+                  <tr key={athlete.id} className="hover:bg-slate-50/50 transition-colors group">
+                    <td className="p-4 border border-slate-100 text-center font-bold text-slate-400 sticky left-0 bg-white group-hover:bg-slate-50/50 z-10">{index + 1}</td>
+                    <td className="p-4 border border-slate-100 text-left font-black text-slate-900 sticky left-[41px] bg-white group-hover:bg-slate-50/50 z-10">{athlete.name}</td>
+                    <td className="p-4 border border-slate-100 text-center font-bold text-slate-900">{athlete.height}</td>
+                    <td className="p-4 border border-slate-100 text-center font-bold text-slate-900">{currentWeight}</td>
+                    <td className="p-4 border border-slate-100 text-center font-bold text-blue-600 bg-blue-50/10">
+                      {getTargetIndicator(currentWeight, athlete.targetWeight)} {athlete.targetWeight}
                     </td>
-                    <td className="p-2 border border-slate-100 text-center font-bold text-emerald-600 bg-emerald-50/10">{athlete.bodyFatInBody}%</td>
-                    <td className="p-2 border border-slate-100 text-center font-bold text-slate-600 bg-rose-50/10">{latestAssessment?.bicep || '-'}</td>
-                    <td className="p-2 border border-slate-100 text-center font-bold text-slate-600 bg-rose-50/10">{latestAssessment?.tricep || '-'}</td>
-                    <td className="p-2 border border-slate-100 text-center font-bold text-slate-600 bg-rose-50/10">{latestAssessment?.subscapula || '-'}</td>
-                    <td className="p-2 border border-slate-100 text-center font-bold text-slate-600 bg-rose-50/10">{latestAssessment?.abdominal || '-'}</td>
-                    <td className="p-2 border border-slate-100 text-center font-black text-slate-900 bg-rose-50/10">{latestAssessment?.total || '-'}</td>
-                    <td className="p-2 border border-slate-100 text-center font-black text-brand-red bg-rose-50/10">{latestAssessment?.bfCaliper || athlete.bodyFatCaliper}%</td>
-                    <td className="p-2 border border-slate-100 text-center font-bold text-slate-900 bg-rose-50/10">
-                      {getTargetIndicator(athlete.bodyFatCaliper, athlete.targetBodyFat)} {athlete.targetBodyFat}%
+                    <td className="p-4 border border-slate-100 text-center font-black text-brand-red bg-rose-50/10">{currentBF}%</td>
+                    <td className="p-4 border border-slate-100 text-center font-bold text-slate-900 bg-rose-50/10">
+                      {getTargetIndicator(currentBF, athlete.targetBodyFat)} {athlete.targetBodyFat}%
                     </td>
-                    <td className="p-2 border border-slate-100 text-center font-bold text-slate-900 bg-amber-50/10">{athlete.exerciseCalories.toLocaleString()}</td>
-                    <td className="p-2 border border-slate-100 text-center font-bold text-slate-900 bg-amber-50/10">{athlete.presentEnergy.toLocaleString()}</td>
-                    <td className="p-2 border border-slate-100 text-center font-bold text-slate-900 bg-amber-50/10">{athlete.dailyCalories.toLocaleString()}</td>
                   </tr>
                 );
               })}

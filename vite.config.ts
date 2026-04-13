@@ -16,7 +16,7 @@ export default defineConfig(({mode}) => {
         manifest: {
           name: 'Nutrition Performance Dashboard',
           short_name: 'NutritionApp',
-          description: 'Dashboard Nutrisi dan Performa Atlet PBSI',
+          description: 'Dashboard Nutrisi dan Performa Atlet Profesional',
           theme_color: '#E11D48',
           background_color: '#ffffff',
           display: 'standalone',

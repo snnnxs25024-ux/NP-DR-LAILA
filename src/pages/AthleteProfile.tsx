@@ -61,6 +61,60 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
 
   if (!athlete) return <div className="p-8 text-center font-bold text-slate-500">Atlet tidak ditemukan</div>;
 
+  const chartData = [...athlete.assessmentHistory].reverse().map(entry => ({
+    date: entry.date,
+    weight: entry.weight,
+    target: athlete.targetWeight,
+    bodyFat: entry.bfCaliper,
+    targetBodyFat: athlete.targetBodyFat
+  }));
+
+  const startWeight = athlete.assessmentHistory[athlete.assessmentHistory.length - 1]?.weight || athlete.weight;
+  const startBF = athlete.assessmentHistory[athlete.assessmentHistory.length - 1]?.bfCaliper || athlete.bodyFatCaliper;
+  
+  const calculateProgress = (start: number, current: number, target: number) => {
+    if (start === target) return 100;
+    const progress = ((start - current) / (start - target)) * 100;
+    return Math.min(100, Math.max(0, Math.round(progress)));
+  };
+
+  const weightProgress = calculateProgress(startWeight, athlete.weight, athlete.targetWeight);
+  const bfProgress = calculateProgress(startBF, athlete.bodyFatCaliper, athlete.targetBodyFat);
+
+  // Calculate differences for the assessment table summary
+  const history = athlete.assessmentHistory;
+  const latest = history[0];
+  const previous = history[1];
+  const first = history[history.length - 1];
+
+  const getDiff = (curr: number, prev: number) => {
+    const diff = curr - prev;
+    return {
+      value: (diff > 0 ? '+' : '') + diff.toFixed(1),
+      isPositive: diff > 0,
+      isNegative: diff < 0,
+      raw: diff
+    };
+  };
+
+  const diffUpdate = previous ? {
+    bfInBody: getDiff(latest.bfInBody, previous.bfInBody),
+    total: getDiff(latest.total, previous.total),
+    bfCaliper: getDiff(latest.bfCaliper, previous.bfCaliper),
+    weight: getDiff(latest.weight, previous.weight),
+    lbm: getDiff(latest.lbm, previous.lbm),
+    fm: getDiff(latest.fm, previous.fm),
+  } : null;
+
+  const diffGlobal = first && first !== latest ? {
+    bfInBody: getDiff(latest.bfInBody, first.bfInBody),
+    total: getDiff(latest.total, first.total),
+    bfCaliper: getDiff(latest.bfCaliper, first.bfCaliper),
+    weight: getDiff(latest.weight, first.weight),
+    lbm: getDiff(latest.lbm, first.lbm),
+    fm: getDiff(latest.fm, first.fm),
+  } : null;
+
   // Data untuk "Kemarin" (Mock)
   const yesterdayData = {
     weight: (athlete.weight - 0.4).toFixed(1),
@@ -777,8 +831,6 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
               </div>
               <div className="flex items-center gap-2 md:gap-3 mt-1.5">
                 <span className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">Kategori {athlete.division}</span>
-                <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
-                <span className="text-[10px] font-black text-brand-red uppercase tracking-widest">Pelatnas PBSI</span>
               </div>
             </div>
           </div>
@@ -887,8 +939,9 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                 <div className="w-1.5 h-5 bg-blue-500 rounded-full"></div>
                 <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Identitas & Fisik Atlet</h3>
               </div>
-              <div className="px-4 py-1.5 rounded-xl bg-slate-50 border border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                ID: {athlete.id.padStart(4, '0')}
+              <div className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-slate-50 border border-slate-100">
+                <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Status Aktif</span>
               </div>
             </div>
 
@@ -926,7 +979,11 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
 
                 <div className="space-y-4">
                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50 pb-2">Antropometri</h4>
-                  <ProfileItem label="Lingkar Lengan - Kategori - Range BB" value={`${athlete.armCircumference} cm - ${athlete.armCircumferenceCategory} - ${athlete.armCircumferenceRangeBB}`} />
+                  <div className="grid grid-cols-2 gap-4">
+                    <ProfileItem label="Lingkar Lengan" value={`${athlete.armCircumference} cm`} />
+                    <ProfileItem label="Kategori Lengan" value={athlete.armCircumferenceCategory} />
+                  </div>
+                  <ProfileItem label="Range BB" value={athlete.armCircumferenceRangeBB} />
                   <div className="grid grid-cols-2 gap-4">
                     <ProfileItem label="Body Fat (Kaliper)" value={`${athlete.bodyFatCaliper} %`} />
                     <ProfileItem label="Body Fat (In Body)" value={`${athlete.bodyFatInBody} %`} />
@@ -939,91 +996,154 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
               </div>
             </div>
 
-            <div className="mt-8 pt-8 border-t border-slate-50 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex flex-col">
-                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Tahun Bergabung</span>
-                  <span className="text-xs font-black text-slate-900">{athlete.joinYear || 2022}</span>
-                </div>
-                <div className="w-px h-6 bg-slate-100"></div>
-                <div className="flex flex-col">
-                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Ukuran Jersey</span>
-                  <span className="text-xs font-black text-slate-900">{athlete.apparelSize?.shirt || 'L'}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Aktif Pelatnas</span>
-              </div>
-            </div>
+            {/* Bottom section removed as per request */}
           </div>
         </div>
-      </div>
-
-      {/* Key Metrics Bento Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4">
-        <StatCard icon={Scale} label="Lemak (Kaliper)" value={`${athlete.bodyFatCaliper}%`} subValue="Terbaru" color="red" />
-        <StatCard icon={Droplet} label="In Body" value={`${athlete.bodyFatInBody}%`} subValue="Lemak Tubuh" color="blue" />
-        <StatCard icon={Target} label="Target BB" value={`${athlete.targetWeight} kg`} subValue={`Sisa: ${(athlete.weight - athlete.targetWeight).toFixed(1)} kg`} color="orange" />
-        <StatCard icon={Target} label="Target Body Fat" value={`${athlete.targetBodyFat}%`} subValue="Target Persentase" color="red" />
       </div>
 
       {/* Main Analysis Section: Trends & Comparison */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Weight Trend Chart */}
         <div className="lg:col-span-12 bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-6">
             <div>
-              <h3 className="text-xl font-black text-slate-900 tracking-tight uppercase">Tren Berat Badan</h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Perubahan Berat Badan 6 Bulan Terakhir</p>
+              <h3 className="text-xl font-black text-slate-900 tracking-tight uppercase">Tren Komposisi Tubuh</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Perubahan Berat & Lemak 6 Bulan Terakhir</p>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-brand-red"></div>
                 <span className="text-[10px] font-bold text-slate-500 uppercase">Berat</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-slate-200"></div>
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Target</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Target BB</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Body Fat</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-blue-100"></div>
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Target BF</span>
               </div>
             </div>
           </div>
-          <div className="h-[300px] w-full">
+
+          <div className="h-[350px] w-full mb-10">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={weightHistory}>
+              <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis 
                   dataKey="date" 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
+                  tick={{ fill: '#94a3b8', fontSize: 9, fontWeight: 800 }}
                   dy={10}
                 />
                 <YAxis 
+                  yAxisId="left"
+                  hide 
+                  domain={['dataMin - 2', 'dataMax + 2']}
+                />
+                <YAxis 
+                  yAxisId="right"
+                  orientation="right"
                   hide 
                   domain={['dataMin - 1', 'dataMax + 1']}
                 />
                 <Tooltip 
-                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
+                  labelStyle={{ fontWeight: 900, marginBottom: '8px', fontSize: '11px', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                  itemStyle={{ padding: '2px 0', fontWeight: 700, fontSize: '12px' }}
                 />
                 <Line 
+                  yAxisId="left"
                   type="monotone" 
                   dataKey="weight" 
                   stroke="#e11d48" 
                   strokeWidth={4} 
                   dot={{ r: 4, fill: '#e11d48', strokeWidth: 2, stroke: '#fff' }}
                   activeDot={{ r: 6, strokeWidth: 0 }}
+                  name="Berat (kg)"
                 />
                 <Line 
+                  yAxisId="left"
                   type="monotone" 
                   dataKey="target" 
-                  stroke="#e2e8f0" 
-                  strokeWidth={2} 
-                  strokeDasharray="5 5"
+                  stroke="#94a3b8" 
+                  strokeWidth={1.5} 
+                  strokeDasharray="4 4"
                   dot={false}
+                  name="Target BB"
+                />
+                <Line 
+                  yAxisId="right"
+                  type="monotone" 
+                  dataKey="bodyFat" 
+                  stroke="#3b82f6" 
+                  strokeWidth={4} 
+                  dot={{ r: 4, fill: '#3b82f6', strokeWidth: 2, stroke: '#fff' }}
+                  activeDot={{ r: 6, strokeWidth: 0 }}
+                  name="Body Fat (%)"
+                />
+                <Line 
+                  yAxisId="right"
+                  type="monotone" 
+                  dataKey="targetBodyFat" 
+                  stroke="#64748b" 
+                  strokeWidth={1.5} 
+                  strokeDasharray="4 4"
+                  dot={false}
+                  name="Target BF"
                 />
               </LineChart>
             </ResponsiveContainer>
+          </div>
+
+          {/* Progress Bars Section - Moved to Bottom */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+            <div className="space-y-2">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Progress Berat Badan</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black text-brand-red bg-red-50 px-2 py-0.5 rounded-full">{weightProgress}%</span>
+                  <span className="text-xs font-black text-slate-900">{athlete.weight} kg</span>
+                </div>
+              </div>
+              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${weightProgress}%` }}
+                  className="h-full bg-brand-red rounded-full shadow-sm"
+                />
+              </div>
+              <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
+                <span>Mulai: {startWeight} kg</span>
+                <span className="text-slate-600">Target: {athlete.targetWeight} kg</span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Progress Body Fat</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{bfProgress}%</span>
+                  <span className="text-xs font-black text-slate-900">{athlete.bodyFatCaliper}%</span>
+                </div>
+              </div>
+              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${bfProgress}%` }}
+                  className="h-full bg-blue-500 rounded-full shadow-sm"
+                />
+              </div>
+              <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
+                <span>Mulai: {startBF}%</span>
+                <span className="text-slate-600">Target: {athlete.targetBodyFat}%</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1061,221 +1181,6 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
       {/* Removed old Assessment History Table section as it is now in a Modal */}
       {/* Removed old Comprehensive Profile Section and Comparison Section as they are now integrated above */}
 
-      {/* Notes & Injuries Section - NEW PASTEL ACTIVITY FEED */}
-      <div className="mt-12 space-y-8">
-        {/* Summary Bento Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-[2rem] p-6 border border-slate-200 shadow-sm flex items-center gap-5">
-            <div className="w-14 h-14 rounded-2xl bg-pastel-red flex items-center justify-center text-brand-red">
-              <AlertCircle className="w-7 h-7" />
-            </div>
-            <div>
-              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cedera Aktif</div>
-              <div className="text-2xl font-black text-slate-900">{athlete.injuries.filter(i => i.status === 'Active').length}</div>
-            </div>
-          </div>
-          <div className="bg-white rounded-[2rem] p-6 border border-slate-200 shadow-sm flex items-center gap-5">
-            <div className="w-14 h-14 rounded-2xl bg-pastel-blue flex items-center justify-center text-blue-600">
-              <MessageSquareQuote className="w-7 h-7" />
-            </div>
-            <div>
-              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Catatan</div>
-              <div className="text-2xl font-black text-slate-900">{athlete.notes.length}</div>
-            </div>
-          </div>
-          <div className="bg-white rounded-[2rem] p-6 border border-slate-200 shadow-sm flex items-center gap-5">
-            <div className="w-14 h-14 rounded-2xl bg-pastel-green flex items-center justify-center text-green-600">
-              <CheckCircle2 className="w-7 h-7" />
-            </div>
-            <div>
-              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status Pemulihan</div>
-              <div className="text-2xl font-black text-slate-900">
-                {athlete.injuries.length > 0 
-                  ? Math.round((athlete.injuries.filter(i => i.status === 'Recovered').length / athlete.injuries.length) * 100) 
-                  : 100}%
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Unified Activity Feed */}
-        <div className="bg-white rounded-[3rem] p-10 border border-slate-200 shadow-sm">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-            <div>
-              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Timeline Aktivitas & Medis</h3>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Riwayat lengkap perkembangan dan kesehatan atlet</p>
-            </div>
-            
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex bg-slate-100 p-1.5 rounded-2xl mr-2">
-                {(['All', 'Note', 'Injury'] as const).map((filter) => (
-                  <button
-                    key={filter}
-                    onClick={() => setActiveFilter(filter)}
-                    className={cn(
-                      "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                      activeFilter === filter ? "bg-white text-slate-900 shadow-sm" : "text-slate-400 hover:text-slate-600"
-                    )}
-                  >
-                    {filter === 'All' ? 'Semua' : filter === 'Note' ? 'Catatan' : 'Cedera'}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => { setEditingNote(null); setIsNoteModalOpen(true); }}
-                  className="flex items-center gap-2 px-5 py-3 bg-pastel-blue text-blue-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-100 transition-all"
-                >
-                  <Plus className="w-4 h-4" /> Catatan
-                </button>
-                <button 
-                  onClick={() => { setEditingInjury(null); setIsInjuryModalOpen(true); }}
-                  className="flex items-center gap-2 px-5 py-3 bg-pastel-red text-brand-red rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-all"
-                >
-                  <Plus className="w-4 h-4" /> Cedera
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="relative">
-            {/* Timeline Line */}
-            <div className="absolute left-6 top-0 bottom-0 w-px bg-slate-100 hidden md:block"></div>
-
-            <div className="space-y-8 relative">
-              <AnimatePresence mode="popLayout">
-                {[
-                  ...athlete.notes.map(n => ({ ...n, type: 'Note' as const })),
-                  ...athlete.injuries.map(i => ({ ...i, type: 'Injury' as const }))
-                ]
-                .filter(item => activeFilter === 'All' || item.type === activeFilter)
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                .map((item) => {
-                  const isNote = item.type === 'Note';
-                  const noteItem = item as any;
-                  
-                  return (
-                    <motion.div 
-                      key={item.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      className="flex gap-6 group"
-                    >
-                      {/* Icon Container */}
-                      <div className="relative z-10 hidden md:block">
-                        <div className={cn(
-                          "w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm border-2 border-white",
-                          isNote ? (
-                            noteItem.category === 'Coaching' ? "bg-pastel-blue text-blue-600" :
-                            noteItem.category === 'Nutrition' ? "bg-pastel-green text-green-600" :
-                            noteItem.category === 'Behavior' ? "bg-pastel-indigo text-indigo-600" :
-                            "bg-slate-100 text-slate-600"
-                          ) : "bg-pastel-red text-brand-red"
-                        )}>
-                          {isNote ? (
-                            noteItem.category === 'Nutrition' ? <Apple className="w-5 h-5" /> :
-                            noteItem.category === 'Behavior' ? <Zap className="w-5 h-5" /> :
-                            <MessageSquareQuote className="w-5 h-5" />
-                          ) : <Stethoscope className="w-5 h-5" />}
-                        </div>
-                      </div>
-
-                      {/* Content Card */}
-                      <div className={cn(
-                        "flex-1 p-6 rounded-[2rem] border transition-all relative group-hover:shadow-md",
-                        isNote ? (
-                          noteItem.category === 'Coaching' ? "bg-blue-50/30 border-blue-100/50" :
-                          noteItem.category === 'Nutrition' ? "bg-green-50/30 border-green-100/50" :
-                          noteItem.category === 'Behavior' ? "bg-indigo-50/30 border-indigo-100/50" :
-                          "bg-slate-50 border-slate-100"
-                        ) : "bg-red-50/30 border-red-100/50"
-                      )}>
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.date}</span>
-                            <span className={cn(
-                              "px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest",
-                              isNote ? (
-                                noteItem.category === 'Coaching' ? "bg-blue-100 text-blue-600" :
-                                noteItem.category === 'Nutrition' ? "bg-green-100 text-green-600" :
-                                noteItem.category === 'Behavior' ? "bg-indigo-100 text-indigo-600" :
-                                "bg-slate-200 text-slate-600"
-                              ) : "bg-red-100 text-brand-red"
-                            )}>
-                              {isNote ? noteItem.category : 'Cedera'}
-                            </span>
-                            {!isNote && (
-                              <span className={cn(
-                                "px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest",
-                                (item as any).status === 'Active' ? "bg-brand-red text-white" : "bg-green-500 text-white"
-                              )}>
-                                {(item as any).status === 'Active' ? 'Aktif' : 'Sembuh'}
-                              </span>
-                            )}
-                          </div>
-                          
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button 
-                              onClick={() => {
-                                if (isNote) { setEditingNote(item as any); setIsNoteModalOpen(true); }
-                                else { setEditingInjury(item as any); setIsInjuryModalOpen(true); }
-                              }} 
-                              className="p-2 hover:bg-white rounded-xl text-slate-400 hover:text-slate-600 shadow-sm transition-all"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button 
-                              onClick={() => isNote ? handleDeleteNote(item.id) : handleDeleteInjury(item.id)} 
-                              className="p-2 hover:bg-white rounded-xl text-slate-400 hover:text-red-600 shadow-sm transition-all"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-
-                        <h4 className="text-base font-black text-slate-900 mb-2">{isNote ? noteItem.title : (item as any).type}</h4>
-                        <p className="text-sm text-slate-500 leading-relaxed">{isNote ? noteItem.content : (item as any).notes}</p>
-                        
-                        {!isNote && (item as any).severity && (
-                          <div className="mt-4 flex items-center gap-2">
-                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Keparahan:</div>
-                            <div className="flex gap-1">
-                              {[1, 2, 3].map((i) => (
-                                <div 
-                                  key={i} 
-                                  className={cn(
-                                    "w-4 h-1.5 rounded-full",
-                                    i === 1 && (item as any).severity === 'Ringan' ? "bg-yellow-400" :
-                                    i <= 2 && (item as any).severity === 'Sedang' ? "bg-orange-400" :
-                                    i <= 3 && (item as any).severity === 'Berat' ? "bg-red-500" :
-                                    "bg-slate-200"
-                                  )}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  );
-                })
-              }
-            </AnimatePresence>
-
-            {athlete.notes.length === 0 && athlete.injuries.length === 0 && (
-              <div className="text-center py-20">
-                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Filter className="w-10 h-10 text-slate-200" />
-                </div>
-                <h4 className="text-lg font-black text-slate-900 uppercase tracking-tight">Belum ada aktivitas</h4>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-2">Mulai tambahkan catatan atau laporan cedera atlet</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
   </motion.div>
 ) : (
   <motion.div 
@@ -1332,6 +1237,38 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                         <td className="px-4 py-4 text-center text-xs font-black text-orange-600 bg-slate-50/30">{entry.fm}</td>
                       </tr>
                     ))}
+
+                    {/* Summary Rows */}
+                    {diffUpdate && (
+                      <tr className="bg-slate-50/80 border-t-2 border-slate-100">
+                        <td className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Terupdate</td>
+                        <td className={cn("px-4 py-4 text-center text-xs font-black", diffUpdate.bfInBody.raw === 0 ? "text-slate-400" : diffUpdate.bfInBody.isNegative ? "text-emerald-600" : "text-brand-red")}>{diffUpdate.bfInBody.value}%</td>
+                        <td className="px-4 py-4 text-center text-xs font-bold text-slate-300">-</td>
+                        <td className="px-4 py-4 text-center text-xs font-bold text-slate-300">-</td>
+                        <td className="px-4 py-4 text-center text-xs font-bold text-slate-300">-</td>
+                        <td className="px-4 py-4 text-center text-xs font-bold text-slate-300">-</td>
+                        <td className={cn("px-4 py-4 text-center text-xs font-black bg-slate-100/50", diffUpdate.total.raw === 0 ? "text-slate-400" : diffUpdate.total.isNegative ? "text-emerald-600" : "text-brand-red")}>{diffUpdate.total.value}</td>
+                        <td className={cn("px-4 py-4 text-center text-xs font-black bg-slate-100/50", diffUpdate.bfCaliper.raw === 0 ? "text-slate-400" : diffUpdate.bfCaliper.isNegative ? "text-emerald-600" : "text-brand-red")}>{diffUpdate.bfCaliper.value}%</td>
+                        <td className={cn("px-4 py-4 text-center text-xs font-black", diffUpdate.weight.raw === 0 ? "text-slate-400" : diffUpdate.weight.isNegative ? "text-emerald-600" : "text-brand-red")}>{diffUpdate.weight.value}</td>
+                        <td className={cn("px-4 py-4 text-center text-xs font-black bg-slate-100/50", diffUpdate.lbm.raw === 0 ? "text-slate-400" : diffUpdate.lbm.isPositive ? "text-emerald-600" : "text-brand-red")}>{diffUpdate.lbm.value}</td>
+                        <td className={cn("px-4 py-4 text-center text-xs font-black bg-slate-100/50", diffUpdate.fm.raw === 0 ? "text-slate-400" : diffUpdate.fm.isNegative ? "text-emerald-600" : "text-brand-red")}>{diffUpdate.fm.value}</td>
+                      </tr>
+                    )}
+                    {diffGlobal && (
+                      <tr className="bg-slate-100/30">
+                        <td className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Global</td>
+                        <td className={cn("px-4 py-4 text-center text-xs font-black", diffGlobal.bfInBody.raw === 0 ? "text-slate-400" : diffGlobal.bfInBody.isNegative ? "text-emerald-600" : "text-brand-red")}>{diffGlobal.bfInBody.value}%</td>
+                        <td className="px-4 py-4 text-center text-xs font-bold text-slate-300">-</td>
+                        <td className="px-4 py-4 text-center text-xs font-bold text-slate-300">-</td>
+                        <td className="px-4 py-4 text-center text-xs font-bold text-slate-300">-</td>
+                        <td className="px-4 py-4 text-center text-xs font-bold text-slate-300">-</td>
+                        <td className={cn("px-4 py-4 text-center text-xs font-black bg-slate-100/50", diffGlobal.total.raw === 0 ? "text-slate-400" : diffGlobal.total.isNegative ? "text-emerald-600" : "text-brand-red")}>{diffGlobal.total.value}</td>
+                        <td className={cn("px-4 py-4 text-center text-xs font-black bg-slate-100/50", diffGlobal.bfCaliper.raw === 0 ? "text-slate-400" : diffGlobal.bfCaliper.isNegative ? "text-emerald-600" : "text-brand-red")}>{diffGlobal.bfCaliper.value}%</td>
+                        <td className={cn("px-4 py-4 text-center text-xs font-black", diffGlobal.weight.raw === 0 ? "text-slate-400" : diffGlobal.weight.isNegative ? "text-emerald-600" : "text-brand-red")}>{diffGlobal.weight.value}</td>
+                        <td className={cn("px-4 py-4 text-center text-xs font-black bg-slate-100/50", diffGlobal.lbm.raw === 0 ? "text-slate-400" : diffGlobal.lbm.isPositive ? "text-emerald-600" : "text-brand-red")}>{diffGlobal.lbm.value}</td>
+                        <td className={cn("px-4 py-4 text-center text-xs font-black bg-slate-100/50", diffGlobal.fm.raw === 0 ? "text-slate-400" : diffGlobal.fm.isNegative ? "text-emerald-600" : "text-brand-red")}>{diffGlobal.fm.value}</td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -1618,7 +1555,7 @@ function BodyVisualization({ athlete }: { athlete: any }) {
 
       {/* Clean Stats Layout - Pushed to the edges to ensure no overlap */}
       <div className="absolute inset-0 flex justify-between items-center pointer-events-none">
-        {/* Left Column: Physical Basics */}
+        {/* Left Column: Weight Metrics */}
         <div className="flex flex-col gap-16 pl-2">
           <div className="space-y-1">
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block">Berat Badan</span>
@@ -1628,22 +1565,15 @@ function BodyVisualization({ athlete }: { athlete: any }) {
             </div>
           </div>
           <div className="space-y-1">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block">Massa Otot</span>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block">Target Berat Badan</span>
             <div className="flex items-baseline gap-1">
-              <span className="text-4xl font-black text-emerald-600">{latestAssessment.lbm || 0}</span>
+              <span className="text-4xl font-black text-slate-900/40">{athlete.targetWeight}</span>
               <span className="text-xs font-bold text-slate-400 uppercase">kg</span>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block">Umur</span>
-            <div className="flex items-baseline gap-1">
-              <span className="text-4xl font-black text-slate-900">{athlete.age}</span>
-              <span className="text-xs font-bold text-slate-400 uppercase">Thn</span>
             </div>
           </div>
         </div>
 
-        {/* Right Column: Body Composition */}
+        {/* Right Column: Body Fat Metrics */}
         <div className="flex flex-col gap-16 text-right pr-2">
           <div className="space-y-1">
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block">Lemak Tubuh</span>
@@ -1653,21 +1583,10 @@ function BodyVisualization({ athlete }: { athlete: any }) {
             </div>
           </div>
           <div className="space-y-1">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block">Massa Lemak</span>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block">Target Body Fat</span>
             <div className="flex items-baseline gap-1 justify-end">
-              <span className="text-4xl font-black text-orange-600">{latestAssessment.fm || 0}</span>
-              <span className="text-xs font-bold text-slate-400 uppercase">kg</span>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block">Status Fisik</span>
-            <div className={cn(
-              "px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest inline-block mt-2",
-              athlete.status === 'Fit' ? "bg-green-500/10 text-green-600" :
-              athlete.status === 'Cedera' ? "bg-red-500/10 text-red-600" :
-              "bg-yellow-500/10 text-yellow-600"
-            )}>
-              {athlete.status}
+              <span className="text-4xl font-black text-brand-red/40">{athlete.targetBodyFat}</span>
+              <span className="text-xs font-bold text-slate-400 uppercase">%</span>
             </div>
           </div>
         </div>

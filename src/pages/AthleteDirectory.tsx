@@ -452,7 +452,7 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
       bloodLab: { hb: 15, ferritin: 100, vitD: 40 },
       sweatRate: 1.0,
       whatsapp: formData.whatsapp,
-      email: `${formData.name.toLowerCase().replace(/\s+/g, '.')}@pbsi.id`,
+      email: `${formData.name.toLowerCase().replace(/\s+/g, '.')}@athlete.id`,
       bloodType: formData.bloodType,
       dominantHand: formData.dominantHand,
       joinYear: new Date().getFullYear(),

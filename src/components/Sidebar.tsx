@@ -89,22 +89,9 @@ export function Sidebar({ currentView, setCurrentView }: SidebarProps) {
               )}
             </AnimatePresence>
           </div>
-          {!isCollapsed && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="mt-1 px-1 whitespace-nowrap"
-            >
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">PBSI National Training</span>
-            </motion.div>
-          )}
         </div>
 
         {/* Navigation */}
-        <div className={cn("px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-2 transition-all", isCollapsed ? "text-center px-0 opacity-0" : "opacity-100")}>
-          Antarmuka Utama
-        </div>
-
         <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto no-scrollbar">
           {navItems.map((item) => {
             const Icon = item.icon;
