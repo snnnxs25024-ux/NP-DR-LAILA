@@ -279,43 +279,12 @@ function AthleteCard({ athlete, viewMode, onClick }: AthleteCardProps) {
                 <h3 className="text-slate-900 font-black text-xl group-hover:text-brand-red transition-colors leading-tight tracking-tight">
                   {athlete.name}
                 </h3>
-                <div className="flex items-center gap-2 mt-1.5">
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-100">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Target:</span>
-                    <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest">{athlete.targetWeight}kg</span>
-                  </div>
-                  <div className={cn(
-                    "px-2.5 py-1 rounded-lg border uppercase tracking-widest text-[9px] font-black",
-                    athlete.weight > athlete.targetWeight 
-                      ? "bg-rose-50 text-brand-red border-rose-100/50" 
-                      : "bg-emerald-50 text-emerald-600 border-emerald-100/50"
-                  )}>
-                    {athlete.weight > athlete.targetWeight 
-                      ? `Sisa ${(athlete.weight - athlete.targetWeight).toFixed(1)}kg` 
-                      : "Tercapai"}
-                  </div>
-                </div>
               </div>
             </div>
             
             <div className="flex flex-col items-end gap-3">
               <div className="p-2 rounded-2xl bg-slate-50 text-slate-400 group-hover:text-white group-hover:bg-brand-red transition-all shadow-sm group-hover:shadow-brand-red/20">
                 <ChevronRight className="w-5 h-5" />
-              </div>
-              <div className="flex flex-col items-center justify-center w-12 h-12 rounded-full border-4 border-emerald-500/20 relative">
-                <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 36 36">
-                  <circle
-                    cx="18"
-                    cy="18"
-                    r="16"
-                    fill="none"
-                    className="stroke-emerald-500"
-                    strokeWidth="4"
-                    strokeDasharray={`${totalProgress}, 100`}
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <span className="text-[10px] font-black text-slate-900">{totalProgress}%</span>
               </div>
             </div>
           </div>
