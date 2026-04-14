@@ -33,7 +33,7 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
   
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success'>('idle');
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'assessment'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'assessment' | 'notes'>('overview');
   const [activeFilter, setActiveFilter] = useState<'All' | 'Note' | 'Injury'>('All');
 
   useEffect(() => {
@@ -235,7 +235,7 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
     const formData = new FormData(e.currentTarget);
     const title = formData.get('title') as string;
     const content = formData.get('content') as string;
-    const category = formData.get('category') as NoteEntry['category'];
+    const category = 'Other';
 
     let updatedNotes: NoteEntry[];
     if (editingNote) {
@@ -902,6 +902,16 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
           Asesmen Fisik
           {activeTab === 'assessment' && <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-1 bg-brand-red rounded-t-full" />}
         </button>
+        <button 
+          onClick={() => setActiveTab('notes')}
+          className={cn(
+            "pb-4 text-xs font-black uppercase tracking-widest transition-all relative",
+            activeTab === 'notes' ? "text-slate-900" : "text-slate-400 hover:text-slate-600"
+          )}
+        >
+          Catatan
+          {activeTab === 'notes' && <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-1 bg-brand-red rounded-t-full" />}
+        </button>
       </div>
 
       <AnimatePresence mode="wait">
@@ -913,283 +923,276 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
             exit={{ opacity: 0, y: -10 }}
             className="space-y-8"
           >
-
-      {/* Hero Section: Anatomical Mapping & Personal Data */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left: Anatomical Mapping */}
-        <div className="lg:col-span-6 bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm flex flex-col items-center justify-center relative overflow-hidden min-h-[650px]">
-          <div className="absolute top-8 left-8 flex flex-col z-10">
-            <span className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Komposisi Tubuh</span>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Visualisasi Klinis</span>
-          </div>
-          
-          <BodyVisualization athlete={athlete} />
-          
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10">
-            <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
-            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Data Terverifikasi</span>
-          </div>
-        </div>
-
-        {/* Right: Comprehensive Personal Data Card */}
-        <div className="lg:col-span-6 flex flex-col gap-6">
-          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm h-full flex flex-col">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-3">
-                <div className="w-1.5 h-5 bg-blue-500 rounded-full"></div>
-                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Identitas & Fisik Atlet</h3>
-              </div>
-              <div className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-slate-50 border border-slate-100">
-                <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Status Aktif</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 flex-grow">
-              {/* Identity Group */}
-              <div className="space-y-6">
-                <div className="space-y-4">
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50 pb-2">Profil Dasar</h4>
-                  <ProfileItem label="Nama Lengkap" value={athlete.name} />
-                  <ProfileItem label="Kategori" value={athlete.division} />
-                  <ProfileItem label="Nomor WhatsApp" value={athlete.whatsapp} />
+            {/* Hero Section: Anatomical Mapping & Personal Data */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              {/* Left: Anatomical Mapping */}
+              <div className="lg:col-span-6 bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm flex flex-col items-center justify-center relative overflow-hidden min-h-[650px]">
+                <div className="absolute top-8 left-8 flex flex-col z-10">
+                  <span className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Komposisi Tubuh</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Visualisasi Klinis</span>
                 </div>
-
-                <div className="space-y-4">
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50 pb-2">Kelahiran</h4>
-                  <ProfileItem label="Tempat Lahir" value={athlete.placeOfBirth} />
-                  <ProfileItem label="Tanggal Lahir" value={athlete.dateOfBirth} />
-                  <ProfileItem label="Umur" value={`${athlete.age} Tahun`} />
+                
+                <BodyVisualization athlete={athlete} />
+                
+                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10">
+                  <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
+                  <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Data Terverifikasi</span>
                 </div>
               </div>
 
-              {/* Physical Group */}
-              <div className="space-y-6">
-                <div className="space-y-4">
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50 pb-2">Metrik Fisik</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <ProfileItem label="Tinggi" value={`${athlete.height} cm`} />
-                    <ProfileItem label="Berat" value={`${athlete.weight} kg`} />
+              {/* Right: Comprehensive Personal Data Card */}
+              <div className="lg:col-span-6 flex flex-col gap-6">
+                <div className="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm h-full flex flex-col">
+                  <div className="flex items-center justify-between mb-8">
+                    <div className="flex items-center gap-3">
+                      <div className="w-1.5 h-5 bg-blue-500 rounded-full"></div>
+                      <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Identitas & Fisik Atlet</h3>
+                    </div>
+                    <div className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-slate-50 border border-slate-100">
+                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                      <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Status Aktif</span>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <ProfileItem label="Gol. Darah" value={athlete.bloodType} />
-                    <ProfileItem label="Tangan" value={athlete.dominantHand} />
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 flex-grow">
+                    {/* Identity Group */}
+                    <div className="space-y-6">
+                      <div className="space-y-4">
+                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50 pb-2">Profil Dasar</h4>
+                        <ProfileItem label="Nama Lengkap" value={athlete.name} />
+                        <ProfileItem label="Kategori" value={athlete.division} />
+                        <ProfileItem label="Nomor WhatsApp" value={athlete.whatsapp} />
+                      </div>
+
+                      <div className="space-y-4">
+                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50 pb-2">Kelahiran</h4>
+                        <ProfileItem label="Tempat Lahir" value={athlete.placeOfBirth} />
+                        <ProfileItem label="Tanggal Lahir" value={athlete.dateOfBirth} />
+                        <ProfileItem label="Umur" value={`${athlete.age} Tahun`} />
+                      </div>
+                    </div>
+
+                    {/* Physical Group */}
+                    <div className="space-y-6">
+                      <div className="space-y-4">
+                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50 pb-2">Metrik Fisik</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          <ProfileItem label="Tinggi" value={`${athlete.height} cm`} />
+                          <ProfileItem label="Berat" value={`${athlete.weight} kg`} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <ProfileItem label="Gol. Darah" value={athlete.bloodType} />
+                          <ProfileItem label="Tangan" value={athlete.dominantHand} />
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50 pb-2">Antropometri</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          <ProfileItem label="Lingkar Lengan" value={`${athlete.armCircumference} cm`} />
+                          <ProfileItem label="Kategori Lengan" value={athlete.armCircumferenceCategory} />
+                        </div>
+                        <ProfileItem label="Range BB" value={athlete.armCircumferenceRangeBB} />
+                        <div className="grid grid-cols-2 gap-4">
+                          <ProfileItem label="Body Fat (Kaliper)" value={`${athlete.bodyFatCaliper} %`} />
+                          <ProfileItem label="Body Fat (In Body)" value={`${athlete.bodyFatInBody} %`} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <ProfileItem label="Target Berat Badan" value={`${athlete.targetWeight} kg`} />
+                          <ProfileItem label="Target Body Fat" value={`${athlete.targetBodyFat} %`} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Main Analysis Section: Trends & Comparison */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              {/* Weight Trend Chart */}
+              <div className="lg:col-span-12 bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm">
+                <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-6">
+                  <div>
+                    <h3 className="text-xl font-black text-slate-900 tracking-tight uppercase">Tren Komposisi Tubuh</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Perubahan Berat & Lemak 6 Bulan Terakhir</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-brand-red"></div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Berat</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-slate-200"></div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Target BB</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Body Fat</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-blue-100"></div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Target BF</span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50 pb-2">Antropometri</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <ProfileItem label="Lingkar Lengan" value={`${athlete.armCircumference} cm`} />
-                    <ProfileItem label="Kategori Lengan" value={athlete.armCircumferenceCategory} />
+                <div className="h-[350px] w-full mb-10">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis 
+                        dataKey="date" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fill: '#94a3b8', fontSize: 9, fontWeight: 800 }}
+                        dy={10}
+                      />
+                      <YAxis 
+                        yAxisId="left"
+                        hide 
+                        domain={['dataMin - 2', 'dataMax + 2']}
+                      />
+                      <YAxis 
+                        yAxisId="right"
+                        orientation="right"
+                        hide 
+                        domain={['dataMin - 1', 'dataMax + 1']}
+                      />
+                      <Tooltip 
+                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
+                        labelStyle={{ fontWeight: 900, marginBottom: '8px', fontSize: '11px', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                        itemStyle={{ padding: '2px 0', fontWeight: 700, fontSize: '12px' }}
+                      />
+                      <Line 
+                        yAxisId="left"
+                        type="monotone" 
+                        dataKey="weight" 
+                        stroke="#e11d48" 
+                        strokeWidth={4} 
+                        dot={{ r: 4, fill: '#e11d48', strokeWidth: 2, stroke: '#fff' }}
+                        activeDot={{ r: 6, strokeWidth: 0 }}
+                        name="Berat (kg)"
+                      />
+                      <Line 
+                        yAxisId="left"
+                        type="monotone" 
+                        dataKey="target" 
+                        stroke="#94a3b8" 
+                        strokeWidth={1.5} 
+                        strokeDasharray="4 4"
+                        dot={false}
+                        name="Target BB"
+                      />
+                      <Line 
+                        yAxisId="right"
+                        type="monotone" 
+                        dataKey="bodyFat" 
+                        stroke="#3b82f6" 
+                        strokeWidth={4} 
+                        dot={{ r: 4, fill: '#3b82f6', strokeWidth: 2, stroke: '#fff' }}
+                        activeDot={{ r: 6, strokeWidth: 0 }}
+                        name="Body Fat (%)"
+                      />
+                      <Line 
+                        yAxisId="right"
+                        type="monotone" 
+                        dataKey="targetBodyFat" 
+                        stroke="#64748b" 
+                        strokeWidth={1.5} 
+                        strokeDasharray="4 4"
+                        dot={false}
+                        name="Target BF"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Progress Bars Section - Moved to Bottom */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Progress Berat Badan</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black text-brand-red bg-red-50 px-2 py-0.5 rounded-full">{weightProgress}%</span>
+                        <span className="text-xs font-black text-slate-900">{athlete.weight} kg</span>
+                      </div>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${weightProgress}%` }}
+                        className="h-full bg-brand-red rounded-full shadow-sm"
+                      />
+                    </div>
+                    <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
+                      <span>Mulai: {startWeight} kg</span>
+                      <span className="text-slate-600">Target: {athlete.targetWeight} kg</span>
+                    </div>
                   </div>
-                  <ProfileItem label="Range BB" value={athlete.armCircumferenceRangeBB} />
-                  <div className="grid grid-cols-2 gap-4">
-                    <ProfileItem label="Body Fat (Kaliper)" value={`${athlete.bodyFatCaliper} %`} />
-                    <ProfileItem label="Body Fat (In Body)" value={`${athlete.bodyFatInBody} %`} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <ProfileItem label="Target Berat Badan" value={`${athlete.targetWeight} kg`} />
-                    <ProfileItem label="Target Body Fat" value={`${athlete.targetBodyFat} %`} />
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Progress Body Fat</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{bfProgress}%</span>
+                        <span className="text-xs font-black text-slate-900">{athlete.bodyFatCaliper}%</span>
+                      </div>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${bfProgress}%` }}
+                        className="h-full bg-blue-500 rounded-full shadow-sm"
+                      />
+                    </div>
+                    <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
+                      <span>Mulai: {startBF}%</span>
+                      <span className="text-slate-600">Target: {athlete.targetBodyFat}%</span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Bottom section removed as per request */}
-          </div>
-        </div>
-      </div>
-
-      {/* Main Analysis Section: Trends & Comparison */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Weight Trend Chart */}
-        <div className="lg:col-span-12 bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm">
-          <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-6">
-            <div>
-              <h3 className="text-xl font-black text-slate-900 tracking-tight uppercase">Tren Komposisi Tubuh</h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Perubahan Berat & Lemak 6 Bulan Terakhir</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-brand-red"></div>
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Berat</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-slate-200"></div>
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Target BB</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Body Fat</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-blue-100"></div>
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Target BF</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="h-[350px] w-full mb-10">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis 
-                  dataKey="date" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fill: '#94a3b8', fontSize: 9, fontWeight: 800 }}
-                  dy={10}
-                />
-                <YAxis 
-                  yAxisId="left"
-                  hide 
-                  domain={['dataMin - 2', 'dataMax + 2']}
-                />
-                <YAxis 
-                  yAxisId="right"
-                  orientation="right"
-                  hide 
-                  domain={['dataMin - 1', 'dataMax + 1']}
-                />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
-                  labelStyle={{ fontWeight: 900, marginBottom: '8px', fontSize: '11px', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.05em' }}
-                  itemStyle={{ padding: '2px 0', fontWeight: 700, fontSize: '12px' }}
-                />
-                <Line 
-                  yAxisId="left"
-                  type="monotone" 
-                  dataKey="weight" 
-                  stroke="#e11d48" 
-                  strokeWidth={4} 
-                  dot={{ r: 4, fill: '#e11d48', strokeWidth: 2, stroke: '#fff' }}
-                  activeDot={{ r: 6, strokeWidth: 0 }}
-                  name="Berat (kg)"
-                />
-                <Line 
-                  yAxisId="left"
-                  type="monotone" 
-                  dataKey="target" 
-                  stroke="#94a3b8" 
-                  strokeWidth={1.5} 
-                  strokeDasharray="4 4"
-                  dot={false}
-                  name="Target BB"
-                />
-                <Line 
-                  yAxisId="right"
-                  type="monotone" 
-                  dataKey="bodyFat" 
-                  stroke="#3b82f6" 
-                  strokeWidth={4} 
-                  dot={{ r: 4, fill: '#3b82f6', strokeWidth: 2, stroke: '#fff' }}
-                  activeDot={{ r: 6, strokeWidth: 0 }}
-                  name="Body Fat (%)"
-                />
-                <Line 
-                  yAxisId="right"
-                  type="monotone" 
-                  dataKey="targetBodyFat" 
-                  stroke="#64748b" 
-                  strokeWidth={1.5} 
-                  strokeDasharray="4 4"
-                  dot={false}
-                  name="Target BF"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Progress Bars Section - Moved to Bottom */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-            <div className="space-y-2">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Progress Berat Badan</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black text-brand-red bg-red-50 px-2 py-0.5 rounded-full">{weightProgress}%</span>
-                  <span className="text-xs font-black text-slate-900">{athlete.weight} kg</span>
+              {/* Comparison Cards */}
+              <div className="lg:col-span-12 space-y-4">
+                <div className="flex items-center justify-between px-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-1.5 h-4 bg-brand-red rounded-full"></div>
+                    <h2 className="text-sm font-black text-slate-900 tracking-tight uppercase">Perbandingan Asesmen</h2>
+                  </div>
+                  <button 
+                    onClick={() => setIsHistoryModalOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-[10px] font-black text-brand-red uppercase tracking-widest transition-all border border-slate-100"
+                  >
+                    <Table className="w-3 h-3" />
+                    Lihat Riwayat Lengkap
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <AssessmentSummaryCard 
+                    title="Asesmen Terbaru" 
+                    data={athlete.assessmentHistory[0]} 
+                    targetWeight={athlete.targetWeight}
+                    type="current"
+                  />
+                  <AssessmentSummaryCard 
+                    title="3 Bulan Lalu" 
+                    data={athlete.assessmentHistory[athlete.assessmentHistory.length - 1]} 
+                    type="past"
+                  />
                 </div>
               </div>
-              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: `${weightProgress}%` }}
-                  className="h-full bg-brand-red rounded-full shadow-sm"
-                />
-              </div>
-              <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
-                <span>Mulai: {startWeight} kg</span>
-                <span className="text-slate-600">Target: {athlete.targetWeight} kg</span>
-              </div>
             </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Progress Body Fat</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{bfProgress}%</span>
-                  <span className="text-xs font-black text-slate-900">{athlete.bodyFatCaliper}%</span>
-                </div>
-              </div>
-              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: `${bfProgress}%` }}
-                  className="h-full bg-blue-500 rounded-full shadow-sm"
-                />
-              </div>
-              <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
-                <span>Mulai: {startBF}%</span>
-                <span className="text-slate-600">Target: {athlete.targetBodyFat}%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Comparison Cards */}
-        <div className="lg:col-span-12 space-y-4">
-          <div className="flex items-center justify-between px-2">
-            <div className="flex items-center gap-3">
-              <div className="w-1.5 h-4 bg-brand-red rounded-full"></div>
-              <h2 className="text-sm font-black text-slate-900 tracking-tight uppercase">Perbandingan Asesmen</h2>
-            </div>
-            <button 
-              onClick={() => setIsHistoryModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-[10px] font-black text-brand-red uppercase tracking-widest transition-all border border-slate-100"
-            >
-              <Table className="w-3 h-3" />
-              Lihat Riwayat Lengkap
-            </button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <AssessmentSummaryCard 
-              title="Asesmen Terbaru" 
-              data={athlete.assessmentHistory[0]} 
-              targetWeight={athlete.targetWeight}
-              type="current"
-            />
-            <AssessmentSummaryCard 
-              title="3 Bulan Lalu" 
-              data={athlete.assessmentHistory[athlete.assessmentHistory.length - 1]} 
-              type="past"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Removed old Assessment History Table section as it is now in a Modal */}
-      {/* Removed old Comprehensive Profile Section and Comparison Section as they are now integrated above */}
-
-  </motion.div>
-) : (
-  <motion.div 
-    key="assessment"
-    initial={{ opacity: 0, y: 10 }}
-    animate={{ opacity: 1, y: 0 }}
-    exit={{ opacity: 0, y: -10 }}
-    className="space-y-8"
-  >
+          </motion.div>
+        ) : activeTab === 'assessment' ? (
+          <motion.div 
+            key="assessment"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-8"
+          >
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Riwayat Asesmen Fisik</h3>
@@ -1274,6 +1277,75 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
               </div>
             </div>
           </motion.div>
+        ) : (
+          <motion.div 
+            key="notes"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-8"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Catatan & Feedback</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Memo khusus perkembangan atlet</p>
+              </div>
+              <button 
+                onClick={() => {
+                  setEditingNote(null);
+                  setIsNoteModalOpen(true);
+                }}
+                className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg"
+              >
+                <Plus className="w-4 h-4" /> Tambah Catatan Baru
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {athlete.notes.length > 0 ? (
+                athlete.notes.map((note) => (
+                  <div key={note.id} className="bg-white rounded-[2rem] p-6 border border-slate-200 shadow-sm hover:border-slate-300 transition-all group relative overflow-hidden">
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{note.date}</span>
+                    </div>
+                    <h4 className="text-sm font-black text-slate-900 mb-2 uppercase tracking-tight">{note.title}</h4>
+                    <p className="text-xs text-slate-500 leading-relaxed mb-6">{note.content}</p>
+                    
+                    <div className="flex items-center gap-2 pt-4 border-t border-slate-50">
+                      <button 
+                        onClick={() => {
+                          setEditingNote(note);
+                          setIsNoteModalOpen(true);
+                        }}
+                        className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-[10px] font-black text-slate-600 uppercase tracking-widest transition-all"
+                      >
+                        <Edit2 className="w-3 h-3" /> Edit
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteNote(note.id)}
+                        className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-brand-red transition-all"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-full py-20 flex flex-col items-center justify-center bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200">
+                  <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-sm mb-4">
+                    <MessageSquareQuote className="w-8 h-8 text-slate-300" />
+                  </div>
+                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Belum ada catatan untuk atlet ini</p>
+                  <button 
+                    onClick={() => setIsNoteModalOpen(true)}
+                    className="mt-4 text-[10px] font-black text-brand-red uppercase tracking-widest hover:underline"
+                  >
+                    Tambah Catatan Pertama
+                  </button>
+                </div>
+              )}
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
       </div>
@@ -1296,21 +1368,6 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
               </button>
             </div>
             <form onSubmit={handleSaveNote} className="p-8 space-y-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Kategori</label>
-                <div className="grid grid-cols-2 gap-3">
-                  {(['Coaching', 'Nutrition', 'Behavior', 'Other'] as const).map((cat) => (
-                    <label key={cat} className={cn(
-                      "flex items-center gap-3 p-3 rounded-2xl border-2 cursor-pointer transition-all",
-                      "hover:border-slate-300",
-                      editingNote?.category === cat ? "border-slate-900 bg-slate-900 text-white" : "border-slate-100 bg-slate-50 text-slate-600"
-                    )}>
-                      <input type="radio" name="category" value={cat} defaultChecked={editingNote?.category === cat || (!editingNote && cat === 'Coaching')} className="hidden" />
-                      <span className="text-[10px] font-black uppercase tracking-widest">{cat === 'Coaching' ? 'Latihan' : cat === 'Nutrition' ? 'Nutrisi' : cat === 'Behavior' ? 'Perilaku' : 'Lainnya'}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Judul</label>
                 <input name="title" type="text" defaultValue={editingNote?.title} required placeholder="Contoh: Fokus Power" className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3.5 text-sm font-bold focus:border-slate-900 outline-none transition-all" />
