@@ -1,5 +1,5 @@
 import { useState, useEffect, FormEvent } from 'react';
-import { Filter, Search, ChevronRight, Activity, Droplets, Scale, UserPlus, Grid, List, X, Plus, Trash2, Edit2, Check, Save } from 'lucide-react';
+import { Filter, Search, ChevronRight, Activity, Droplets, Scale, UserPlus, Grid, List, X, Plus, Trash2, Edit2, Check, Save, Ruler } from 'lucide-react';
 import { athletes as initialAthletes, Athlete, Division, Sector, AssessmentEntry } from '../data/mockData';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -107,7 +107,7 @@ export function AthleteDirectory({ onSelectAthlete }: AthleteDirectoryProps) {
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Filter berdasarkan Kategori</label>
             <span className="text-[10px] font-bold text-brand-red uppercase tracking-widest">{selectedCategory === 'All' ? 'Semua' : selectedCategory}</span>
           </div>
-          <div className="flex md:flex-wrap gap-2 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0 no-scrollbar -mx-2 px-2 md:mx-0 md:px-0">
+          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 -mx-2 px-2">
             {['All', ...categories].map(cat => (
               <button
                 key={cat}
@@ -175,8 +175,23 @@ interface AthleteCardProps {
 }
 
 function AthleteCard({ athlete, viewMode, onClick }: AthleteCardProps) {
-  const isAlert = Math.abs(athlete.weight - athlete.targetWeight) > 1.5;
+  const lastAssessment = athlete.assessmentHistory[0];
+  const lastUpdateDate = lastAssessment?.date || 'N/A';
   
+  // Calculate progress percentages (closeness to target)
+  const calculateCloseness = (current: number, target: number) => {
+    if (current === target) return 100;
+    const diff = Math.abs(current - target);
+    // Simple heuristic: if diff is 0, 100%. If diff is 10% of target, it's significantly off.
+    const maxDev = target * 0.1; 
+    const percentage = Math.max(0, 100 - (diff / maxDev) * 100);
+    return Math.round(percentage);
+  };
+
+  const weightProgress = calculateCloseness(athlete.weight, athlete.targetWeight);
+  const bfProgress = calculateCloseness(athlete.bodyFatCaliper, athlete.targetBodyFat);
+  const totalProgress = Math.round((weightProgress + bfProgress) / 2);
+
   if (viewMode === 'list') {
     return (
       <motion.div 
@@ -197,28 +212,25 @@ function AthleteCard({ athlete, viewMode, onClick }: AthleteCardProps) {
           <div>
             <h3 className="text-slate-900 font-bold text-sm group-hover:text-brand-red transition-colors">{athlete.name}</h3>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[9px] font-black text-brand-red uppercase tracking-widest">Target: {athlete.targetWeight}kg</span>
+              <span className="text-[9px] font-black text-brand-red uppercase tracking-widest">BB: {athlete.weight}kg</span>
               <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
-              <span className={cn(
-                "text-[9px] font-bold uppercase tracking-widest",
-                athlete.weight > athlete.targetWeight ? "text-orange-600" : "text-emerald-600"
-              )}>
-                {athlete.weight > athlete.targetWeight 
-                  ? `Sisa ${(athlete.weight - athlete.targetWeight).toFixed(1)}kg` 
-                  : "Target Tercapai"}
-              </span>
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">BF: {athlete.bodyFatCaliper}%</span>
             </div>
           </div>
         </div>
         
         <div className="flex items-center gap-8">
-          <div className="hidden md:flex flex-col items-end">
-            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Berat Badan</span>
-            <span className={cn("text-xs font-black", isAlert ? "text-brand-red" : "text-slate-900")}>{athlete.weight} kg</span>
-          </div>
-          <div className="hidden md:flex flex-col items-end">
-            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Kepatuhan</span>
-            <span className="text-xs font-black text-emerald-600">{athlete.compliance}%</span>
+          <div className="hidden md:flex flex-col items-end w-24">
+            <div className="flex justify-between w-full mb-1">
+              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Progress</span>
+              <span className="text-[8px] font-black text-brand-red uppercase tracking-widest">{totalProgress}%</span>
+            </div>
+            <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-brand-red transition-all duration-1000" 
+                style={{ width: `${totalProgress}%` }}
+              ></div>
+            </div>
           </div>
           <div className="p-2 rounded-xl bg-slate-50 text-slate-400 group-hover:text-white group-hover:bg-brand-red transition-all">
             <ChevronRight className="w-4 h-4" />
@@ -236,18 +248,17 @@ function AthleteCard({ athlete, viewMode, onClick }: AthleteCardProps) {
       onClick={onClick}
       className="group relative"
     >
-      {/* Glow Effect */}
       <div className={cn(
         "absolute -inset-0.5 rounded-[2.5rem] blur opacity-0 group-hover:opacity-20 transition duration-500",
         athlete.status === 'Fit' ? "bg-green-500" : athlete.status === 'Cedera' ? "bg-brand-red" : "bg-yellow-500"
       )}></div>
       
       <div className="relative bg-white border border-slate-200 group-hover:border-brand-red/20 rounded-[2.5rem] p-6 cursor-pointer transition-all shadow-sm group-hover:shadow-xl overflow-hidden">
-        {/* Subtle Background Pattern */}
         <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-slate-50 to-transparent -mr-16 -mt-16 rounded-full opacity-50 group-hover:scale-150 transition-transform duration-700"></div>
         
-        <div className="relative z-10">
-          <div className="flex items-start justify-between mb-6">
+        <div className="relative z-10 space-y-6">
+          {/* Header: Profile & Name */}
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="relative">
                 <div className={cn(
@@ -291,74 +302,90 @@ function AthleteCard({ athlete, viewMode, onClick }: AthleteCardProps) {
               <div className="p-2 rounded-2xl bg-slate-50 text-slate-400 group-hover:text-white group-hover:bg-brand-red transition-all shadow-sm group-hover:shadow-brand-red/20">
                 <ChevronRight className="w-5 h-5" />
               </div>
-              {/* Compliance Ring - Repositioned and Styled */}
-              <div className="relative w-10 h-10 group-hover:scale-110 transition-transform duration-500">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+              <div className="flex flex-col items-center justify-center w-12 h-12 rounded-full border-4 border-emerald-500/20 relative">
+                <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 36 36">
                   <circle
                     cx="18"
                     cy="18"
                     r="16"
                     fill="none"
-                    className="stroke-slate-100"
-                    strokeWidth="3.5"
-                  />
-                  <circle
-                    cx="18"
-                    cy="18"
-                    r="16"
-                    fill="none"
-                    className={cn(
-                      athlete.compliance > 90 ? "stroke-emerald-500" : "stroke-yellow-500"
-                    )}
-                    strokeWidth="3.5"
-                    strokeDasharray={`${athlete.compliance}, 100`}
+                    className="stroke-emerald-500"
+                    strokeWidth="4"
+                    strokeDasharray={`${totalProgress}, 100`}
                     strokeLinecap="round"
-                    stroke="currentColor"
                   />
                 </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-[8px] font-black text-slate-900">{athlete.compliance}%</span>
+                <span className="text-[10px] font-black text-slate-900">{totalProgress}%</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-slate-50/50 border border-slate-100 rounded-3xl p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-white shadow-sm">
+                  <Scale className="w-3.5 h-3.5 text-slate-400" />
+                </div>
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Berat Badan</span>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-lg font-black text-slate-900">{athlete.weight}</span>
+                <span className="text-[10px] font-bold text-slate-400">kg</span>
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[8px] font-black uppercase tracking-widest">
+                  <span className="text-slate-400">Target: {athlete.targetWeight}kg</span>
+                  <span className="text-brand-red">{weightProgress}%</span>
+                </div>
+                <div className="w-full h-1.5 bg-slate-200/50 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-brand-red transition-all duration-1000" 
+                    style={{ width: `${weightProgress}%` }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-50/50 border border-slate-100 rounded-3xl p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-white shadow-sm">
+                  <Activity className="w-3.5 h-3.5 text-slate-400" />
+                </div>
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Body Fat</span>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-lg font-black text-slate-900">{athlete.bodyFatCaliper}</span>
+                <span className="text-[10px] font-bold text-slate-400">%</span>
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[8px] font-black uppercase tracking-widest">
+                  <span className="text-slate-400">Target: {athlete.targetBodyFat}%</span>
+                  <span className="text-emerald-600">{bfProgress}%</span>
+                </div>
+                <div className="w-full h-1.5 bg-slate-200/50 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-emerald-500 transition-all duration-1000" 
+                    style={{ width: `${bfProgress}%` }}
+                  ></div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-slate-50/50 rounded-2xl p-3 border border-slate-100 flex flex-col items-center justify-center text-center group/metric hover:bg-white hover:border-brand-red/20 hover:shadow-sm transition-all">
-              <Scale className={cn("w-4 h-4 mb-1.5 transition-transform group-hover/metric:scale-110", isAlert ? "text-brand-red" : "text-slate-400")} />
-              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Berat</span>
-              <span className={cn("text-xs font-black tracking-tight", isAlert ? "text-brand-red" : "text-slate-900")}>
-                {athlete.weight}kg
-              </span>
-            </div>
-            
-            <div className="bg-slate-50/50 rounded-2xl p-3 border border-slate-100 flex flex-col items-center justify-center text-center group/metric hover:bg-white hover:border-blue-500/20 hover:shadow-sm transition-all">
-              <Ruler className="w-4 h-4 mb-1.5 text-slate-400 group-hover/metric:text-blue-500 transition-colors" />
-              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Tinggi</span>
-              <span className="text-xs font-black text-slate-900 tracking-tight">
-                {athlete.height}cm
-              </span>
-            </div>
-
-            <div className="bg-slate-50/50 rounded-2xl p-3 border border-slate-100 flex flex-col items-center justify-center text-center group/metric hover:bg-white hover:border-emerald-500/20 hover:shadow-sm transition-all">
-              <Activity className="w-4 h-4 mb-1.5 text-slate-400 group-hover/metric:text-emerald-500 transition-colors" />
-              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Lengan</span>
-              <span className="text-xs font-black text-slate-900 tracking-tight">
-                {athlete.armCircumference}cm
-              </span>
-            </div>
-          </div>
-          
-          <div className="mt-6 pt-6 border-t border-slate-50 flex items-center justify-between">
+          {/* Footer: Assessment History */}
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-brand-red"></div>
+              <div className="w-2 h-2 rounded-full bg-brand-red animate-pulse"></div>
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                Asesmen: <span className="text-slate-900">{athlete.assessmentHistory[0]?.date || 'N/A'}</span>
+                Asesmen: <span className="text-slate-900">{lastUpdateDate}</span>
               </span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-1 h-1 rounded-full bg-slate-300"></div>
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Update: 4j lalu</span>
+              <div className="w-1.5 h-1.5 rounded-full bg-slate-200"></div>
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                Update: <span className="text-slate-500">4J LALU</span>
+              </span>
             </div>
           </div>
         </div>
@@ -858,7 +885,3 @@ function ManageCategoriesModal({ isOpen, onClose, categories, setCategories }: {
     </div>
   );
 }
-
-import { Utensils, Ruler } from 'lucide-react';
-
-

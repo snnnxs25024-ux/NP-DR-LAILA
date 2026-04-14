@@ -1589,14 +1589,17 @@ function BodyVisualization({ athlete }: { athlete: any }) {
   return (
     <div className="relative w-full max-w-[700px] h-[600px] flex items-center justify-center">
       {/* Height Scale Axis - Moved closer to body to avoid overlapping with text */}
-      <div className="absolute left-[28%] top-1/2 -translate-y-1/2 h-[400px] flex flex-col items-center z-10 pointer-events-none opacity-30">
-        <div className="w-px h-full bg-slate-300 relative">
+      <div className="absolute left-[28%] top-1/2 -translate-y-1/2 h-[400px] flex flex-col items-center z-10 pointer-events-none">
+        <div className="w-px h-full bg-slate-300 relative opacity-30">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-px bg-slate-400"></div>
           <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-2 h-px bg-slate-400"></div>
         </div>
-        <div className="absolute -top-10 flex flex-col items-center">
-          <span className="text-[10px] font-black text-slate-900">{athlete.height} CM</span>
-          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Tinggi</span>
+        <div className="absolute -top-14 flex flex-col items-center">
+          <div className="flex items-baseline gap-1">
+            <span className="text-3xl font-black text-slate-900">{athlete.height}</span>
+            <span className="text-xs font-bold text-slate-400 uppercase">cm</span>
+          </div>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Tinggi</span>
         </div>
       </div>
 
