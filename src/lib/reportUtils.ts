@@ -3,53 +3,133 @@ import autoTable from 'jspdf-autotable';
 import domtoimage from 'dom-to-image-more';
 import { Athlete, AssessmentEntry } from '../data/mockData';
 
-export const generateAssessmentPDF = (athlete: Athlete, assessments: AssessmentEntry[], title: string) => {
+export const generateAssessmentPDF = (
+  athlete: Athlete, 
+  assessments: AssessmentEntry[], 
+  title: string,
+  diffUpdate?: any,
+  diffGlobal?: any
+) => {
   const doc = new jsPDF();
   
   // Header
-  doc.setFontSize(20);
+  doc.setFontSize(18);
   doc.setTextColor(225, 29, 72); // brand-red
-  doc.text('LAPORAN ASESMEN FISIK', 105, 20, { align: 'center' });
+  doc.setFont('helvetica', 'bold');
+  doc.text('LAPORAN ASESMEN FISIK KLINIS', 105, 15, { align: 'center' });
   
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   doc.setTextColor(100);
-  doc.text(title, 105, 28, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.text(title, 105, 22, { align: 'center' });
   
-  // Athlete Info
-  doc.setFontSize(12);
-  doc.setTextColor(0);
-  doc.text(`Nama: ${athlete.name}`, 20, 45);
-  doc.text(`Divisi: ${athlete.division}`, 20, 52);
-  doc.text(`Sektor: ${athlete.sector}`, 20, 59);
-  doc.text(`Tinggi: ${athlete.height} cm`, 140, 45);
-  doc.text(`Target Berat: ${athlete.targetWeight} kg`, 140, 52);
+  // Athlete Info Grid (Header Profile)
+  doc.setDrawColor(241, 245, 249);
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(14, 30, 182, 45, 3, 3, 'F');
+  
+  doc.setFontSize(8);
+  doc.setTextColor(148, 163, 184);
+  doc.text('NAMA LENGKAP', 20, 38);
+  doc.text('KATEGORI', 80, 38);
+  doc.text('TINGGI', 140, 38);
+  
+  doc.text('BB SAAT INI', 20, 53);
+  doc.text('TARGET BB', 80, 53);
+  doc.text('BODY FAT', 140, 53);
+  
+  doc.text('TARGET BODY FAT', 20, 68);
+
+  doc.setFontSize(10);
+  doc.setTextColor(30, 41, 59);
+  doc.setFont('helvetica', 'bold');
+  doc.text(athlete.name.toUpperCase(), 20, 43);
+  doc.text(athlete.division.toUpperCase(), 80, 43);
+  doc.text(`${athlete.height} CM`, 140, 43);
+  
+  doc.text(`${athlete.weight} KG`, 20, 58);
+  doc.text(`${athlete.targetWeight} KG`, 80, 58);
+  doc.text(`${athlete.bodyFatCaliper} %`, 140, 58);
+  
+  doc.text(`${athlete.targetBodyFat} %`, 20, 73);
   
   // Table
   const tableData = assessments.map(entry => [
     entry.date,
-    `${entry.weight} kg`,
-    `${entry.bfCaliper}%`,
     `${entry.bfInBody}%`,
+    entry.bicep,
+    entry.tricep,
+    entry.subscapula,
+    entry.abdominal,
+    entry.total,
+    `${entry.bfCaliper}%`,
+    `${entry.weight} kg`,
     `${entry.lbm} kg`,
     `${entry.fm} kg`
   ]);
+
+  // Add Summary Rows if provided
+  if (diffUpdate) {
+    tableData.push([
+      { content: 'TOTAL TERUPDATE', styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } },
+      { content: `${diffUpdate.bfInBody.value}%`, styles: { fontStyle: 'bold', textColor: diffUpdate.bfInBody.isNegative ? [5, 150, 105] : [225, 29, 72] } },
+      '-', '-', '-', '-',
+      { content: diffUpdate.total.value, styles: { fontStyle: 'bold', textColor: diffUpdate.total.isNegative ? [5, 150, 105] : [225, 29, 72] } },
+      { content: `${diffUpdate.bfCaliper.value}%`, styles: { fontStyle: 'bold', textColor: diffUpdate.bfCaliper.isNegative ? [5, 150, 105] : [225, 29, 72] } },
+      { content: diffUpdate.weight.value, styles: { fontStyle: 'bold', textColor: diffUpdate.weight.isNegative ? [5, 150, 105] : [225, 29, 72] } },
+      { content: diffUpdate.lbm.value, styles: { fontStyle: 'bold', textColor: diffUpdate.lbm.isPositive ? [5, 150, 105] : [225, 29, 72] } },
+      { content: diffUpdate.fm.value, styles: { fontStyle: 'bold', textColor: diffUpdate.fm.isNegative ? [5, 150, 105] : [225, 29, 72] } }
+    ] as any);
+  }
+
+  if (diffGlobal) {
+    tableData.push([
+      { content: 'TOTAL GLOBAL', styles: { fontStyle: 'bold', fillColor: [226, 232, 240] } },
+      { content: `${diffGlobal.bfInBody.value}%`, styles: { fontStyle: 'bold', textColor: diffGlobal.bfInBody.isNegative ? [5, 150, 105] : [225, 29, 72] } },
+      '-', '-', '-', '-',
+      { content: diffGlobal.total.value, styles: { fontStyle: 'bold', textColor: diffGlobal.total.isNegative ? [5, 150, 105] : [225, 29, 72] } },
+      { content: `${diffGlobal.bfCaliper.value}%`, styles: { fontStyle: 'bold', textColor: diffGlobal.bfCaliper.isNegative ? [5, 150, 105] : [225, 29, 72] } },
+      { content: diffGlobal.weight.value, styles: { fontStyle: 'bold', textColor: diffGlobal.weight.isNegative ? [5, 150, 105] : [225, 29, 72] } },
+      { content: diffGlobal.lbm.value, styles: { fontStyle: 'bold', textColor: diffGlobal.lbm.isPositive ? [5, 150, 105] : [225, 29, 72] } },
+      { content: diffGlobal.fm.value, styles: { fontStyle: 'bold', textColor: diffGlobal.fm.isNegative ? [5, 150, 105] : [225, 29, 72] } }
+    ] as any);
+  }
   
   autoTable(doc, {
-    startY: 70,
-    head: [['Tanggal', 'Berat', 'BF% (Caliper)', 'BF% (InBody)', 'LBM', 'FM']],
+    startY: 85,
+    head: [['TANGGAL', 'BF% INB', 'B', 'T', 'SC', 'A', 'TOT', 'BF% CAL', 'BB (KG)', 'LBM', 'FM']],
     body: tableData,
-    headStyles: { fillColor: [225, 29, 72] },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    headStyles: { 
+      fillColor: [239, 246, 255], 
+      textColor: [30, 41, 59],
+      fontSize: 8,
+      fontStyle: 'bold',
+      halign: 'center'
+    },
+    bodyStyles: {
+      fontSize: 8,
+      halign: 'center'
+    },
+    columnStyles: {
+      0: { halign: 'left', fontStyle: 'bold' }
+    },
+    alternateRowStyles: { fillColor: [252, 253, 255] },
+    margin: { top: 20 },
+    theme: 'grid',
+    styles: {
+      lineColor: [226, 232, 240],
+      lineWidth: 0.1
+    }
   });
   
   // Footer
   const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-    doc.setFontSize(8);
-    doc.setTextColor(150);
-    doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 20, 285);
-    doc.text(`Halaman ${i} dari ${pageCount}`, 190, 285, { align: 'right' });
+    doc.setFontSize(7);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Laporan ini dihasilkan secara otomatis oleh Sistem Manajemen Atlet PBSI. Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 14, 285);
+    doc.text(`Halaman ${i} dari ${pageCount}`, 196, 285, { align: 'right' });
   }
   
   return doc;

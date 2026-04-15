@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Calendar, Activity, Scale, ChevronRight, Share2, Download, Printer, ArrowUpRight, ArrowDownRight, X, Plus, User, MapPin, Ruler, Zap, Droplet, Hand, CalendarDays, Info, Edit2, HeartPulse, Flame, Apple, Target, History, Table, Trash2, Stethoscope, MessageSquareQuote, Filter, CheckCircle2, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ArrowLeft, Calendar, Activity, Scale, ChevronRight, Share2, Download, Printer, ArrowUpRight, ArrowDownRight, X, Plus, User, MapPin, Ruler, Zap, Droplet, Hand, CalendarDays, Info, Edit2, HeartPulse, Flame, Apple, Target, History, Table, Trash2, Stethoscope, MessageSquareQuote, Filter, CheckCircle2, AlertCircle, TrendingUp } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { athletes, weightHistory, nutritionBalance, AssessmentEntry, NoteEntry, InjuryEntry } from '../data/mockData';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { downloadCSV, triggerPrint } from '../lib/exportUtils';
-import { generateAssessmentPDF, shareToWhatsApp, captureElementAsJPG } from '../lib/reportUtils';
+import { generateAssessmentPDF, shareToWhatsApp } from '../lib/reportUtils';
 import { format, isWithinInterval, startOfMonth, endOfMonth, parse } from 'date-fns';
 import { id } from 'date-fns/locale';
 
@@ -82,13 +82,24 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
   const bfProgress = calculateProgress(startBF, athlete.bodyFatCaliper, athlete.targetBodyFat);
 
   // Calculate differences for the assessment table summary
-  const history = athlete.assessmentHistory;
+  const history = useMemo(() => {
+    return [...athlete.assessmentHistory].sort((a, b) => {
+      try {
+        const dateA = parse(a.date, 'dd MMM yy', new Date(), { locale: id });
+        const dateB = parse(b.date, 'dd MMM yy', new Date(), { locale: id });
+        return dateB.getTime() - dateA.getTime();
+      } catch (e) {
+        return 0;
+      }
+    });
+  }, [athlete.assessmentHistory]);
+
   const latest = history[0];
   const previous = history[1];
   const first = history[history.length - 1];
 
   const getDiff = (curr: number, prev: number) => {
-    const diff = curr - prev;
+    const diff = Number((curr - prev).toFixed(1));
     return {
       value: (diff > 0 ? '+' : '') + diff.toFixed(1),
       isPositive: diff > 0,
@@ -115,6 +126,32 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
     fm: getDiff(latest.fm, first.fm),
   } : null;
 
+  // Calculate filtered history and title for report
+  const { filteredHistory, reportTitle } = useMemo(() => {
+    if (!athlete) return { filteredHistory: [], reportTitle: '' };
+    let history = athlete.assessmentHistory;
+    let title = '';
+
+    if (reportRange === 'currentMonth') {
+      const start = startOfMonth(new Date());
+      const end = endOfMonth(new Date());
+      history = athlete.assessmentHistory.filter(entry => {
+        const entryDate = parse(entry.date, 'dd MMM yy', new Date(), { locale: id });
+        return isWithinInterval(entryDate, { start, end });
+      });
+      title = `Laporan Bulan ${format(new Date(), 'MMMM yyyy', { locale: id })}`;
+    } else {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      history = athlete.assessmentHistory.filter(entry => {
+        const entryDate = parse(entry.date, 'dd MMM yy', new Date(), { locale: id });
+        return isWithinInterval(entryDate, { start, end });
+      });
+      title = `Laporan Periode ${format(start, 'dd MMM yyyy', { locale: id })} - ${format(end, 'dd MMM yyyy', { locale: id })}`;
+    }
+    return { filteredHistory: history, reportTitle: title };
+  }, [athlete, reportRange, startDate, endDate]);
+
   // Data untuk "Kemarin" (Mock)
   const yesterdayData = {
     weight: (athlete.weight - 0.4).toFixed(1),
@@ -130,6 +167,8 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
     const tricep = Number(formData.get('tricep'));
     const subscapula = Number(formData.get('subscapula'));
     const abdominal = Number(formData.get('abdominal'));
+    const dateInput = formData.get('date') as string;
+    const notes = formData.get('notes') as string;
     
     // Simple calculation for total and bf% (this is mock logic)
     const total = bicep + tricep + subscapula + abdominal;
@@ -137,8 +176,12 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
     const fm = Number((weight * (bfCaliper / 100)).toFixed(2));
     const lbm = Number((weight - fm).toFixed(2));
 
+    const formattedDate = dateInput 
+      ? format(new Date(dateInput), 'dd MMM yy', { locale: id }).toUpperCase()
+      : new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' }).toUpperCase();
+
     const newEntry: AssessmentEntry = {
-      date: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' }).toUpperCase(),
+      date: formattedDate,
       bfInBody,
       bicep,
       tricep,
@@ -148,7 +191,8 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
       bfCaliper,
       weight,
       lbm,
-      fm
+      fm,
+      notes
     };
 
     const updatedAthlete = {
@@ -192,9 +236,17 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
+    // Handle image file if uploaded
+    const imageFile = formData.get('imageFile') as File;
+    let imageUrl = athlete.imageUrl;
+    if (imageFile && imageFile.size > 0) {
+      imageUrl = URL.createObjectURL(imageFile);
+    }
+    
     const updatedAthlete = {
       ...athlete,
       name: formData.get('name') as string,
+      imageUrl: imageUrl,
       division: formData.get('category') as any,
       sector: '' as any,
       status: formData.get('status') as any,
@@ -207,10 +259,7 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
       age: Number(formData.get('age')),
       targetWeight: Number(formData.get('targetWeight')),
       targetBodyFat: Number(formData.get('targetBodyFat')),
-      exerciseCalories: Number(formData.get('exerciseCalories')),
-      presentEnergy: Number(formData.get('presentEnergy')),
-      dailyCalories: Number(formData.get('dailyCalories')),
-      armCircumference: Number(formData.get('armCircumference')),
+      armCircumference: Number(Number(formData.get('armCircumference')).toFixed(1)),
       armCircumferenceCategory: formData.get('armCircumferenceCategory') as string,
       armCircumferenceRangeBB: formData.get('armCircumferenceRangeBB') as string,
     };
@@ -294,27 +343,7 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
   };
 
   const handleShareReport = (type: 'pdf' | 'jpg' | 'whatsapp') => {
-    let filteredHistory = athlete.assessmentHistory;
-    let title = '';
-
-    if (reportRange === 'currentMonth') {
-      const start = startOfMonth(new Date());
-      const end = endOfMonth(new Date());
-      filteredHistory = athlete.assessmentHistory.filter(entry => {
-        const entryDate = parse(entry.date, 'dd MMM yy', new Date(), { locale: id });
-        return isWithinInterval(entryDate, { start, end });
-      });
-      title = `Laporan Bulan ${format(new Date(), 'MMMM yyyy', { locale: id })}`;
-    } else {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      filteredHistory = athlete.assessmentHistory.filter(entry => {
-        const entryDate = parse(entry.date, 'dd MMM yy', new Date(), { locale: id });
-        return isWithinInterval(entryDate, { start, end });
-      });
-      title = `Laporan Periode ${format(start, 'dd MMM yyyy', { locale: id })} - ${format(end, 'dd MMM yyyy', { locale: id })}`;
-    }
-
+    if (!athlete) return;
     if (filteredHistory.length === 0) {
       setShareError('Tidak ada data asesmen pada rentang waktu tersebut.');
       setTimeout(() => setShareError(null), 3000);
@@ -323,13 +352,14 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
 
     try {
       if (type === 'pdf') {
-        const doc = generateAssessmentPDF(athlete, filteredHistory, title);
+        const doc = generateAssessmentPDF(athlete, filteredHistory, reportTitle, diffUpdate, diffGlobal);
         doc.save(`Laporan_Asesmen_${athlete.name.replace(/\s+/g, '_')}.pdf`);
-      } else if (type === 'jpg') {
-        // Capture the main profile content
-        captureElementAsJPG('athlete-profile-content', `Laporan_Asesmen_${athlete.name.replace(/\s+/g, '_')}`);
       } else if (type === 'whatsapp') {
-        const message = `Halo ${athlete.name}, berikut adalah ringkasan hasil asesmen fisik kamu untuk ${title}. \n\nBerat Badan Terakhir: ${athlete.weight} kg\nLemak Tubuh: ${athlete.bodyFatCaliper}%\n\nSilakan cek detailnya pada laporan yang akan saya kirimkan.`;
+        // Download PDF first so user can attach it manually
+        const doc = generateAssessmentPDF(athlete, filteredHistory, reportTitle, diffUpdate, diffGlobal);
+        doc.save(`Laporan_Asesmen_${athlete.name.replace(/\s+/g, '_')}.pdf`);
+
+        const message = `Halo ${athlete.name}, berikut adalah Laporan Asesmen Fisik Klinis kamu untuk ${reportTitle}.\n\n*RINGKASAN PROFIL:*\n- Nama: ${athlete.name}\n- Berat Badan: ${athlete.weight} kg (Target: ${athlete.targetWeight} kg)\n- Body Fat: ${athlete.bodyFatCaliper}% (Target: ${athlete.targetBodyFat}%)\n\nDetail riwayat asesmen lengkap telah dilampirkan dalam dokumen PDF. Silakan cek perkembangannya. Semangat terus latihannya!`;
         shareToWhatsApp(athlete.whatsapp, message);
       }
       
@@ -460,19 +490,6 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                 </button>
 
                 <button 
-                  onClick={() => handleShareReport('jpg')}
-                  className="w-full flex items-center justify-between p-4 rounded-2xl bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-all group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 text-blue-600 rounded-lg group-hover:scale-110 transition-transform">
-                      <Download className="w-4 h-4" />
-                    </div>
-                    <span className="text-sm font-bold text-blue-700">Unduh Laporan JPG</span>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-blue-300" />
-                </button>
-
-                <button 
                   onClick={() => handleShareReport('whatsapp')}
                   className="w-full flex items-center justify-between p-4 rounded-2xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-all group"
                 >
@@ -509,17 +526,37 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
             </div>
             
             <form onSubmit={handleUpdateData} className="p-8 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+              {/* Seksi Tanggal & Info Dasar */}
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-black text-brand-red uppercase tracking-[0.2em]">Informasi Dasar</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Tanggal Pengukuran</label>
+                    <input 
+                      name="date" 
+                      type="date" 
+                      defaultValue={format(new Date(), 'yyyy-MM-dd')} 
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Berat Badan (kg)</label>
+                    <input name="weight" type="number" step="0.1" defaultValue={athlete.weight} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
+                  </div>
+                </div>
+              </div>
+
               {/* Seksi Biometrik */}
               <div className="space-y-4">
                 <h4 className="text-[10px] font-black text-brand-red uppercase tracking-[0.2em]">Data Asesmen</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Berat Badan (kg)</label>
-                    <input name="weight" type="number" step="0.1" defaultValue={athlete.weight} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Body Fat % (In Body)</label>
+                    <input name="bfInBody" type="number" step="0.1" defaultValue={athlete.bodyFatInBody} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Lemak Tubuh % (In Body)</label>
-                    <input name="bfInBody" type="number" step="0.1" defaultValue={athlete.bodyFatInBody} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Catatan Tambahan</label>
+                    <input name="notes" type="text" placeholder="Contoh: Diukur pagi hari, kondisi fit" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
                   </div>
                 </div>
               </div>
@@ -589,6 +626,18 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                       <input name="name" type="text" defaultValue={athlete.name} required className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
                     </div>
                     <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Foto Profil</label>
+                      <div className="flex items-center gap-4 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2">
+                        <img src={athlete.imageUrl} alt="" className="w-8 h-8 rounded-lg object-cover border border-slate-200" />
+                        <input 
+                          name="imageFile" 
+                          type="file" 
+                          accept="image/*"
+                          className="flex-1 text-[10px] text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[9px] file:font-black file:uppercase file:tracking-widest file:bg-slate-900 file:text-white hover:file:bg-slate-800 transition-all cursor-pointer" 
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-slate-500 uppercase">Status</label>
                       <select name="status" defaultValue={athlete.status} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all">
                         <option value="Fit">Fit</option>
@@ -600,7 +649,7 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                       <label className="text-[10px] font-bold text-slate-500 uppercase">Kategori</label>
                       <select name="category" defaultValue={athlete.division} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all">
                         {['U-13', 'U-15', 'U-17', 'U-19', 'Senior', "Men's Singles", "Women's Singles", "Men's Doubles", "Women's Doubles", "Mixed Doubles"].map(c => (
-                          <option key={c} value={c}>{c}</option>
+                           <option key={c} value={c}>{c}</option>
                         ))}
                       </select>
                     </div>
@@ -659,7 +708,7 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                       <input name="targetWeight" type="number" step="0.1" defaultValue={athlete.targetWeight} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Target Lemak Tubuh (%)</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Target Body Fat (%)</label>
                       <input name="targetBodyFat" type="number" step="0.1" defaultValue={athlete.targetBodyFat} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
                     </div>
                     <div className="space-y-1.5">
@@ -677,27 +726,9 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                   </div>
                 </div>
 
-                {/* Energi & Kalori */}
-                <div className="space-y-4">
-                  <h4 className="text-[10px] font-black text-brand-red uppercase tracking-[0.2em]">Energi & Kalori</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Kalori Latihan</label>
-                      <input name="exerciseCalories" type="number" defaultValue={athlete.exerciseCalories} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Energi Saat Ini</label>
-                      <input name="presentEnergy" type="number" defaultValue={athlete.presentEnergy} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Kalori Harian</label>
-                      <input name="dailyCalories" type="number" defaultValue={athlete.dailyCalories} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
-                    </div>
-                  </div>
-                </div>
               </div>
 
-              <div className="pt-8 flex gap-3 sticky bottom-0 bg-white border-t border-slate-100 mt-8 pb-2">
+              <div className="pt-8 flex gap-3 border-t border-slate-100 mt-8">
                 <button type="button" onClick={() => setIsEditProfileModalOpen(false)} className="flex-1 px-6 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-black uppercase tracking-widest transition-all">
                   Batal
                 </button>
@@ -747,6 +778,7 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                       <th className="py-4 px-4 text-[10px] font-black text-slate-900 uppercase tracking-widest border border-slate-200">BB (kg)</th>
                       <th className="py-4 px-4 text-[10px] font-black text-slate-900 uppercase tracking-widest border border-slate-200">LBM (kg)</th>
                       <th className="py-4 px-4 text-[10px] font-black text-slate-900 uppercase tracking-widest border border-slate-200">FM (kg)</th>
+                      <th className="py-4 px-4 text-[10px] font-black text-slate-900 uppercase tracking-widest border border-slate-200">Catatan</th>
                     </tr>
                     <tr className="border-b border-slate-100 bg-slate-100/50">
                       <th colSpan={3} className="border border-slate-200"></th>
@@ -772,6 +804,7 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                         <td className="py-4 px-4 text-xs font-black text-slate-900 border border-slate-100 bg-yellow-50/50">{entry.weight}</td>
                         <td className="py-4 px-4 text-xs font-black text-emerald-600 border border-slate-100">{entry.lbm}</td>
                         <td className="py-4 px-4 text-xs font-black text-orange-600 border border-slate-100">{entry.fm}</td>
+                        <td className="py-4 px-4 text-xs font-bold text-slate-500 border border-slate-100 italic">{entry.notes || '-'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -988,8 +1021,8 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
 
                       <div className="space-y-4">
                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50 pb-2">Antropometri</h4>
-                        <div className="grid grid-cols-2 gap-4">
-                          <ProfileItem label="Lingkar Lengan" value={`${athlete.armCircumference} cm`} />
+                        <div className="grid grid-cols-2 gap-6">
+                          <ProfileItem label="Lingkar Lengan" value={`${athlete.armCircumference.toFixed(1)} cm`} />
                           <ProfileItem label="Kategori Lengan" value={athlete.armCircumferenceCategory} />
                         </div>
                         <ProfileItem label="Range BB" value={athlete.armCircumferenceRangeBB} />
@@ -1206,27 +1239,27 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
               </button>
             </div>
 
-            <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white border border-slate-200 shadow-sm overflow-hidden">
               <div className="overflow-x-auto custom-scrollbar">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-100">
-                      <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tanggal</th>
-                      <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">BF% InB</th>
-                      <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">B</th>
-                      <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">T</th>
-                      <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">SC</th>
-                      <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">A</th>
-                      <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center bg-slate-50/50">TOT</th>
-                      <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center bg-slate-50/50">BF% Cal</th>
-                      <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">BB (kg)</th>
-                      <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center bg-slate-50/50">LBM</th>
-                      <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center bg-slate-50/50">FM</th>
+                    <tr className="bg-blue-50 border-b border-blue-100">
+                      <th className="px-6 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest">Tanggal</th>
+                      <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">BF% InB</th>
+                      <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">B</th>
+                      <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">T</th>
+                      <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">SC</th>
+                      <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">A</th>
+                      <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">TOT</th>
+                      <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">BF% Cal</th>
+                      <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">BB (kg)</th>
+                      <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">LBM</th>
+                      <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">FM</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
                     {athlete.assessmentHistory.map((entry, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                      <tr key={idx} className="hover:bg-blue-50/30 transition-colors even:bg-slate-50/50">
                         <td className="px-6 py-4 text-xs font-black text-slate-900">{entry.date}</td>
                         <td className="px-4 py-4 text-center text-xs font-bold text-blue-600">{entry.bfInBody}%</td>
                         <td className="px-4 py-4 text-center text-xs font-bold text-slate-600">{entry.bicep}</td>
@@ -1274,6 +1307,71 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+
+            {/* Formula Note Card - Standalone Version */}
+            <div className="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-brand-red/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-brand-red/10 transition-colors" />
+              
+              <div className="flex items-center gap-3 mb-8">
+                <div className="w-10 h-10 rounded-2xl bg-slate-900 flex items-center justify-center shadow-lg shadow-slate-900/20">
+                  <Info className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight">Panduan Cara Membaca Data</h4>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Penjelasan rumus & logika perhitungan progres</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
+                {/* Komposisi Tubuh Section */}
+                <div className="bg-blue-50/50 rounded-3xl p-6 border border-blue-100/50">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 rounded-xl bg-blue-500 text-white flex items-center justify-center shadow-md shadow-blue-500/20">
+                      <Activity className="w-4 h-4" />
+                    </div>
+                    <h5 className="text-xs font-black text-blue-900 uppercase tracking-widest">Komposisi Tubuh</h5>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-[10px] font-black text-blue-700 uppercase tracking-tight mb-1">Massa Lemak</p>
+                      <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                        Dihitung dari <span className="text-slate-900 font-bold">Berat Badan</span> dikalikan dengan <span className="text-slate-900 font-bold">Persentase Lemak</span> tubuh atlet.
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-blue-700 uppercase tracking-tight mb-1">Massa Otot</p>
+                      <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                        Dihitung dari <span className="text-slate-900 font-bold">Berat Badan</span> dikurangi dengan <span className="text-slate-900 font-bold">Massa Lemak</span> (hasil berat bersih tanpa lemak).
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Logika Progres Section */}
+                <div className="bg-emerald-50/50 rounded-3xl p-6 border border-emerald-100/50">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/20">
+                      <TrendingUp className="w-4 h-4" />
+                    </div>
+                    <h5 className="text-xs font-black text-emerald-900 uppercase tracking-widest">Logika Perubahan</h5>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-[10px] font-black text-emerald-700 uppercase tracking-tight mb-1">Total Terupdate</p>
+                      <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                        Melihat selisih antara <span className="text-slate-900 font-bold">data terbaru</span> dengan <span className="text-slate-900 font-bold">data tepat sebelumnya</span> (progres jangka pendek).
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-emerald-700 uppercase tracking-tight mb-1">Total Global</p>
+                      <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                        Melihat selisih antara <span className="text-slate-900 font-bold">data terbaru</span> dengan <span className="text-slate-900 font-bold">data pertama kali</span> atlet diukur (progres jangka panjang).
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </motion.div>
@@ -1444,6 +1542,7 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
           </motion.div>
         </div>
       )}
+
     </motion.div>
   );
 }
@@ -1636,7 +1735,7 @@ function BodyVisualization({ athlete }: { athlete: any }) {
         {/* Right Column: Body Fat Metrics */}
         <div className="flex flex-col gap-16 text-right pr-2">
           <div className="space-y-1">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block">Lemak Tubuh</span>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block">Body Fat</span>
             <div className="flex items-baseline gap-1 justify-end">
               <span className="text-4xl font-black text-brand-red">{athlete.bodyFatCaliper}</span>
               <span className="text-xs font-bold text-slate-400 uppercase">%</span>

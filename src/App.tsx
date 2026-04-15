@@ -52,8 +52,8 @@ export default function App() {
         {/* Mobile Header */}
         <div className="md:hidden flex items-center justify-between p-4 border-b border-slate-200 bg-white z-10">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-red to-rose-600 flex items-center justify-center shadow-sm">
-              <span className="text-white font-black text-sm italic tracking-tighter">DL</span>
+            <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-sm border border-slate-100 overflow-hidden">
+              <img src="https://i.imgur.com/qgCJK08.png" alt="Logo" className="w-6 h-6 object-contain" referrerPolicy="no-referrer" />
             </div>
             <div className="flex flex-col">
               <span className="font-black text-[12px] tracking-tight text-slate-900 leading-none">NUTRITION</span>

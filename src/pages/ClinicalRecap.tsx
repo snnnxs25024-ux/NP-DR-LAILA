@@ -183,32 +183,22 @@ export function ClinicalRecap() {
       </div>
 
       {/* Unified Clinical & Status Table */}
-      <div className="flex-1 bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-        <div className="p-6 border-b border-slate-100 bg-slate-50/30 flex items-center justify-between">
-          <h2 className="text-lg font-black text-slate-900 uppercase tracking-[0.3em]">{selectedSector === 'All' ? 'REKAPITULASI KOLEKTIF' : selectedSector.toUpperCase()}</h2>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Live Analysis</span>
-            </div>
-          </div>
-        </div>
-        
+      <div className="flex-1 bg-white border border-slate-200 shadow-sm overflow-hidden flex flex-col">
         <div className="overflow-x-auto custom-scrollbar flex-1">
           <table className="w-full text-[10px] border-collapse clinical-table">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="p-4 border border-slate-200 text-center font-black uppercase sticky left-0 bg-slate-50 z-20">NO</th>
-                <th className="p-4 border border-slate-200 text-left font-black uppercase sticky left-[41px] bg-slate-50 z-20 min-w-[180px]">NAMA</th>
-                <th className="p-4 border border-slate-200 text-center font-black uppercase bg-slate-100/30">TB</th>
-                <th className="p-4 border border-slate-200 text-center font-black uppercase bg-slate-100/30">BB</th>
-                <th className="p-4 border border-slate-200 text-center font-black uppercase bg-blue-50/50">TARGET BB</th>
-                <th className="p-4 border border-slate-200 text-center font-black uppercase bg-blue-50">STATUS BB</th>
-                <th className="p-4 border border-slate-200 text-center font-black uppercase bg-rose-50/30">BF %</th>
-                <th className="p-4 border border-slate-200 text-center font-black uppercase bg-rose-50/50">TARGET BF</th>
-                <th className="p-4 border border-slate-200 text-center font-black uppercase bg-rose-50">STATUS BF</th>
-                <th className="p-4 border border-slate-200 text-center font-black uppercase bg-slate-900 text-white min-w-[200px]">KESIMPULAN & ARAHAN</th>
-                <th className="p-4 border border-slate-200 text-center font-black uppercase bg-slate-50 no-print">AKSI</th>
+              <tr className="bg-blue-50 border-b border-blue-100">
+                <th className="p-4 border border-blue-100 text-center font-black uppercase sticky left-0 bg-blue-50 text-slate-900 z-20">NO</th>
+                <th className="p-4 border border-blue-100 text-left font-black uppercase sticky left-[41px] bg-blue-50 text-slate-900 z-20 min-w-[180px]">NAMA</th>
+                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-900">TB</th>
+                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-900">BB</th>
+                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-900">TARGET BB</th>
+                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-900">STATUS BB</th>
+                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-900">BF %</th>
+                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-900">TARGET BF</th>
+                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-900">STATUS BF</th>
+                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-900 min-w-[200px]">KESIMPULAN & ARAHAN</th>
+                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-900 no-print">AKSI</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -222,7 +212,7 @@ export function ClinicalRecap() {
                 const conclusion = getConclusion(isWeightAchieved, isBFAchieved);
 
                 return (
-                  <tr key={athlete.id} className="hover:bg-slate-50/50 transition-colors group">
+                  <tr key={athlete.id} className="hover:bg-blue-50/30 transition-colors group even:bg-slate-50/50">
                     <td className="p-4 border border-slate-100 text-center font-bold text-slate-400 sticky left-0 bg-white group-hover:bg-slate-50/50 z-10">{index + 1}</td>
                     <td className="p-4 border border-slate-100 text-left font-black text-slate-900 sticky left-[41px] bg-white group-hover:bg-slate-50/50 z-10">
                       <div className="truncate max-w-[150px]">{athlete.name}</div>

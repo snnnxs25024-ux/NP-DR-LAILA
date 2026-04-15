@@ -22,17 +22,17 @@ export default defineConfig(({mode}) => {
           display: 'standalone',
           icons: [
             {
-              src: 'https://picsum.photos/seed/nutrition/192/192',
+              src: 'https://i.imgur.com/qgCJK08.png',
               sizes: '192x192',
               type: 'image/png'
             },
             {
-              src: 'https://picsum.photos/seed/nutrition/512/512',
+              src: 'https://i.imgur.com/qgCJK08.png',
               sizes: '512x512',
               type: 'image/png'
             },
             {
-              src: 'https://picsum.photos/seed/nutrition/512/512',
+              src: 'https://i.imgur.com/qgCJK08.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any maskable'

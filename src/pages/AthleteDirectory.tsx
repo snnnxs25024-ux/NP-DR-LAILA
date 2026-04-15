@@ -90,44 +90,45 @@ export function AthleteDirectory({ onSelectAthlete }: AthleteDirectoryProps) {
         </div>
       </div>
 
-      {/* Advanced Filtering System */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-200 space-y-6 shadow-sm">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Kategori</h2>
-          <button 
-            onClick={() => setIsManageModalOpen(true)}
-            className="text-[10px] font-black text-brand-red hover:text-rose-700 uppercase tracking-widest flex items-center gap-2 transition-colors"
-          >
-            <Edit2 className="w-3 h-3" />
-            Kelola Kategori
-          </button>
-        </div>
-        <div className="space-y-3">
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6 md:space-y-8">
+        {/* Advanced Filtering System */}
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 space-y-6 shadow-sm">
           <div className="flex items-center justify-between">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Filter berdasarkan Kategori</label>
-            <span className="text-[10px] font-bold text-brand-red uppercase tracking-widest">{selectedCategory === 'All' ? 'Semua' : selectedCategory}</span>
+            <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Kategori</h2>
+            <button 
+              onClick={() => setIsManageModalOpen(true)}
+              className="text-[10px] font-black text-brand-red hover:text-rose-700 uppercase tracking-widest flex items-center gap-2 transition-colors"
+            >
+              <Edit2 className="w-3 h-3" />
+              Kelola Kategori
+            </button>
           </div>
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 -mx-2 px-2">
-            {['All', ...categories].map(cat => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={cn(
-                  "px-4 py-2 rounded-xl text-xs font-bold transition-all border whitespace-nowrap",
-                  selectedCategory === cat 
-                    ? "bg-brand-red text-white border-brand-red shadow-lg shadow-brand-red/20" 
-                    : "bg-slate-50 text-slate-500 hover:text-slate-900 border-slate-200 hover:border-slate-300"
-                )}
-              >
-                {cat === 'All' ? 'Semua' : cat}
-              </button>
-            ))}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Filter berdasarkan Kategori</label>
+              <span className="text-[10px] font-bold text-brand-red uppercase tracking-widest">{selectedCategory === 'All' ? 'Semua' : selectedCategory}</span>
+            </div>
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 -mx-2 px-2">
+              {['All', ...categories].map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={cn(
+                    "px-4 py-2 rounded-xl text-xs font-bold transition-all border whitespace-nowrap",
+                    selectedCategory === cat 
+                      ? "bg-brand-red text-white border-brand-red shadow-lg shadow-brand-red/20" 
+                      : "bg-slate-50 text-slate-500 hover:text-slate-900 border-slate-200 hover:border-slate-300"
+                  )}
+                >
+                  {cat === 'All' ? 'Semua' : cat}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Athlete Grid */}
-      <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+        {/* Athlete Grid */}
         <AnimatePresence mode="popLayout">
           <motion.div 
             layout

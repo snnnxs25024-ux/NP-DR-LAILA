@@ -93,6 +93,7 @@ export function Assessments() {
             weight: Number(newData.weight || 0),
             lbm: Number(newData.lbm || 0),
             fm: Number(newData.fm || 0),
+            notes: newData.notes || '',
           };
           return {
             ...athlete,
@@ -121,27 +122,43 @@ export function Assessments() {
   };
 
   const downloadTemplate = () => {
-    const data = athletes.map(a => ({
-      'ID': a.id,
-      'Nama': a.name,
-      'Divisi': a.division,
-      'Sektor': a.sector,
-      'Tanggal (YYYY-MM-DD)': assessmentDate,
-      'BF% InBody': '',
-      'Bicep (mm)': '',
-      'Tricep (mm)': '',
-      'Subscapula (mm)': '',
-      'Abdominal (mm)': '',
-      'BB (kg)': '',
-    }));
+    const header = [
+      'ID', 'Nama', 'Divisi', 'Sektor', 'Tanggal (YYYY-MM-DD)', 
+      'BF% InBody', 'Bicep (mm)', 'Tricep (mm)', 'Subscapula (mm)', 'Abdominal (mm)', 
+      'TOT (mm)', 'BF% Caliper (%)', 'BB (kg)', 'FM (kg)', 'LBM (kg)', 'Catatan'
+    ];
 
-    const ws = XLSX.utils.json_to_sheet(data);
+    const data = athletes.map((a, index) => {
+      const rowNum = index + 2; // Excel rows are 1-indexed, header is row 1
+      return [
+        a.id, 
+        a.name, 
+        a.division, 
+        a.sector, 
+        assessmentDate,
+        '', // BF% InBody
+        '', // Bicep
+        '', // Tricep
+        '', // Subscapula
+        '', // Abdominal
+        { f: `SUM(G${rowNum}:J${rowNum})` }, // TOT
+        { f: `(K${rowNum}*0.25)+2` }, // BF% Caliper
+        '', // BB (kg)
+        { f: `M${rowNum}*(L${rowNum}/100)` }, // FM
+        { f: `M${rowNum}-N${rowNum}` }, // LBM
+        '' // Catatan
+      ];
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Template Asesmen");
     
     // Set column widths
     const wscols = [
-      {wch: 5}, {wch: 25}, {wch: 10}, {wch: 15}, {wch: 20}, {wch: 12}, {wch: 10}, {wch: 10}, {wch: 15}, {wch: 15}, {wch: 10}
+      {wch: 5}, {wch: 25}, {wch: 10}, {wch: 15}, {wch: 20}, 
+      {wch: 12}, {wch: 10}, {wch: 10}, {wch: 15}, {wch: 15}, 
+      {wch: 10}, {wch: 15}, {wch: 10}, {wch: 10}, {wch: 10}, {wch: 25}
     ];
     ws['!cols'] = wscols;
 
@@ -176,6 +193,7 @@ export function Assessments() {
           const bfCaliper = Number(((total * 0.25) + 2).toFixed(1));
           const fm = Number((weight * (bfCaliper / 100)).toFixed(2));
           const lbm = Number((weight - fm).toFixed(2));
+          const notes = row['Catatan'] || '';
 
           newBatchData[athleteId] = {
             bfInBody,
@@ -187,7 +205,8 @@ export function Assessments() {
             bfCaliper,
             weight,
             fm,
-            lbm
+            lbm,
+            notes
           };
         }
       });
@@ -283,22 +302,23 @@ export function Assessments() {
       {/* Main Content Area */}
       <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-0">
         {/* Main Table */}
-        <div className="flex-1 bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+        <div className="flex-1 bg-white border border-slate-200 shadow-sm overflow-hidden flex flex-col">
           <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50/50 border-b border-slate-100">
-                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest sticky left-0 bg-slate-50/50 z-10">Atlet</th>
-                  <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">BF% InBody</th>
-                  <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Bicep</th>
-                  <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Tricep</th>
-                  <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Subscap</th>
-                  <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Abdom</th>
-                  <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center bg-slate-50/80">TOT</th>
-                  <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center bg-slate-50/80">BF% Cal</th>
-                  <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">BB (kg)</th>
-                  <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center bg-slate-50/80">LBM</th>
-                  <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center bg-slate-50/80">FM</th>
+                <tr className="bg-blue-50 border-b border-blue-100">
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest sticky left-0 bg-blue-50 z-10">Atlet</th>
+                  <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">BF% InBody</th>
+                  <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">Bicep</th>
+                  <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">Tricep</th>
+                  <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">Subscap</th>
+                  <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">Abdom</th>
+                  <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">TOT</th>
+                  <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">BF% Cal</th>
+                  <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">BB (kg)</th>
+                  <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">LBM</th>
+                  <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">FM</th>
+                  <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">Catatan</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -310,29 +330,30 @@ export function Assessments() {
                   return (
                     <React.Fragment key={athlete.id}>
                       {isFocused && lastAssessment && (
-                        <tr className="bg-slate-50/80 border-l-4 border-slate-900 animate-in fade-in slide-in-from-top-1 duration-200">
-                          <td className="px-6 py-2 sticky left-0 bg-slate-50/95 z-10">
+                        <tr className="bg-blue-50/50 border-l-4 border-blue-500 animate-in fade-in slide-in-from-top-1 duration-200">
+                          <td className="px-6 py-2 sticky left-0 bg-blue-50/95 z-10">
                             <div className="flex flex-col">
-                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Data Terakhir</span>
-                              <span className="text-[9px] font-bold text-slate-500">{lastAssessment.date}</span>
+                              <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Data Terakhir</span>
+                              <span className="text-[9px] font-bold text-blue-500">{lastAssessment.date}</span>
                             </div>
                           </td>
-                          <td className="px-2 py-2 text-center text-[10px] font-black text-slate-400">{lastAssessment.bfInBody}%</td>
-                          <td className="px-2 py-2 text-center text-[10px] font-black text-slate-400">{lastAssessment.bicep}</td>
-                          <td className="px-2 py-2 text-center text-[10px] font-black text-slate-400">{lastAssessment.tricep}</td>
-                          <td className="px-2 py-2 text-center text-[10px] font-black text-slate-400">{lastAssessment.subscapula}</td>
-                          <td className="px-2 py-2 text-center text-[10px] font-black text-slate-400">{lastAssessment.abdominal}</td>
-                          <td className="px-2 py-2 text-center text-[10px] font-black text-slate-400 bg-slate-100/30">{lastAssessment.total}</td>
-                          <td className="px-2 py-2 text-center text-[10px] font-black text-slate-400 bg-slate-100/30">{lastAssessment.bfCaliper}%</td>
-                          <td className="px-2 py-2 text-center text-[10px] font-black text-slate-400">{lastAssessment.weight}</td>
-                          <td className="px-2 py-2 text-center text-[10px] font-black text-slate-400 bg-slate-100/30">{lastAssessment.lbm}</td>
-                          <td className="px-2 py-2 text-center text-[10px] font-black text-slate-400 bg-slate-100/30">{lastAssessment.fm}</td>
+                          <td className="px-2 py-2 text-center text-[10px] font-black text-blue-400">{lastAssessment.bfInBody}%</td>
+                          <td className="px-2 py-2 text-center text-[10px] font-black text-blue-400">{lastAssessment.bicep}</td>
+                          <td className="px-2 py-2 text-center text-[10px] font-black text-blue-400">{lastAssessment.tricep}</td>
+                          <td className="px-2 py-2 text-center text-[10px] font-black text-blue-400">{lastAssessment.subscapula}</td>
+                          <td className="px-2 py-2 text-center text-[10px] font-black text-blue-400">{lastAssessment.abdominal}</td>
+                          <td className="px-2 py-2 text-center text-[10px] font-black text-blue-400 bg-blue-100/30">{lastAssessment.total}</td>
+                          <td className="px-2 py-2 text-center text-[10px] font-black text-blue-400 bg-blue-100/30">{lastAssessment.bfCaliper}%</td>
+                          <td className="px-2 py-2 text-center text-[10px] font-black text-blue-400">{lastAssessment.weight}</td>
+                          <td className="px-2 py-2 text-center text-[10px] font-black text-blue-400 bg-blue-100/30">{lastAssessment.lbm}</td>
+                          <td className="px-2 py-2 text-center text-[10px] font-black text-blue-400 bg-blue-100/30">{lastAssessment.fm}</td>
+                          <td className="px-2 py-2 text-center text-[10px] font-black text-blue-400">{lastAssessment.notes || '-'}</td>
                         </tr>
                       )}
                       <tr 
                         className={cn(
-                          "hover:bg-slate-50/30 transition-colors group",
-                          isFocused && "bg-slate-50/50"
+                          "hover:bg-blue-50/30 transition-colors group even:bg-slate-50/50",
+                          isFocused && "bg-blue-50/20"
                         )}
                         onClick={() => setFocusedAthleteId(athlete.id)}
                       >
@@ -412,6 +433,16 @@ export function Assessments() {
                         </td>
                         <td className="px-2 py-4 bg-slate-50/30">
                           <div className="text-xs font-black text-orange-600 text-center">{data.fm ? `${data.fm} kg` : '-'}</div>
+                        </td>
+                        <td className="px-2 py-4">
+                          <input 
+                            type="text" 
+                            value={data.notes || ''} 
+                            onChange={(e) => handleInputChange(athlete.id, 'notes', e.target.value)}
+                            onFocus={() => setFocusedAthleteId(athlete.id)}
+                            placeholder="..."
+                            className="w-32 bg-slate-50 border border-slate-100 rounded-lg px-2 py-1.5 text-xs font-bold focus:border-slate-900 outline-none transition-all"
+                          />
                         </td>
                       </tr>
                     </React.Fragment>
@@ -522,10 +553,10 @@ export function Assessments() {
                     <div>
                       <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Antropometri</h3>
                       <div className="space-y-5">
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-6">
                           <div>
                             <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-tight">Lingkar Lengan</div>
-                            <div className="text-sm font-black text-slate-900">{focusedAthlete.armCircumference} cm</div>
+                            <div className="text-sm font-black text-slate-900">{(focusedAthlete.armCircumference || 0).toFixed(1)} cm</div>
                           </div>
                           <div>
                             <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-tight">Kategori Lengan</div>

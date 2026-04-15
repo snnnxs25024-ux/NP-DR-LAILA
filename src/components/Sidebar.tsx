@@ -71,8 +71,8 @@ export function Sidebar({ currentView, setCurrentView }: SidebarProps) {
           <div className="flex items-center gap-3">
             <div className="relative group">
               <div className="absolute -inset-1.5 bg-gradient-to-br from-brand-red to-rose-600 rounded-xl blur opacity-20 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
-              <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-brand-red to-rose-600 flex items-center justify-center shadow-lg shadow-brand-red/20">
-                <span className="text-white font-black text-xl italic tracking-tighter">DL</span>
+              <div className="relative w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-lg shadow-brand-red/10 overflow-hidden">
+                <img src="https://i.imgur.com/qgCJK08.png" alt="Logo" className="w-8 h-8 object-contain" referrerPolicy="no-referrer" />
               </div>
             </div>
             <AnimatePresence mode="wait">
@@ -148,7 +148,6 @@ export function Sidebar({ currentView, setCurrentView }: SidebarProps) {
                   className="flex flex-col min-w-0"
                 >
                   <span className="font-bold text-sm text-slate-900 truncate">Dr. Laila</span>
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Ahli Gizi Olahraga Utama</span>
                 </motion.div>
               )}
             </div>
