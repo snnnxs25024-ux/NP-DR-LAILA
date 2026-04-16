@@ -186,6 +186,8 @@ export function Dashboard() {
           title="Total Atlet" 
           value={athletes.length.toString()} 
           icon={Users} 
+          trend="+2" 
+          trendLabel="vs bulan lalu"
           color="blue" 
         />
         <Widget 
@@ -193,6 +195,8 @@ export function Dashboard() {
           title="Atlet Aktif" 
           value={activeCount.toString()} 
           icon={UserCheck} 
+          trend="Fit" 
+          trendLabel="siap bertanding"
           color="green" 
         />
         <Widget 
@@ -200,6 +204,8 @@ export function Dashboard() {
           title="Non-Aktif" 
           value={nonActiveCount.toString()} 
           icon={UserMinus} 
+          trend={nonActiveCount > 0 ? "Waspada" : "Aman"} 
+          trendLabel="cedera/pemulihan"
           color="red" 
         />
         <Widget 
@@ -207,6 +213,8 @@ export function Dashboard() {
           title="Target Tercapai" 
           value={reachedAthletes.length.toString()} 
           icon={Target} 
+          trend={`${Math.round((reachedAthletes.length / athletes.length) * 100)}%`} 
+          trendLabel="dari total atlet"
           color="yellow" 
         />
       </div>
@@ -585,12 +593,19 @@ export function Dashboard() {
   );
 }
 
-function Widget({ title, value, icon: Icon, color, variants }: { title: string, value: string, icon: any, color: 'blue' | 'red' | 'green' | 'yellow', variants: any }) {
+function Widget({ title, value, icon: Icon, trend, trendLabel, color, variants }: { title: string, value: string, icon: any, trend: string, trendLabel: string, color: 'blue' | 'red' | 'green' | 'yellow', variants: any }) {
   const colorStyles = {
     blue: 'bg-pastel-blue text-blue-600 border-blue-100',
     red: 'bg-pastel-red text-brand-red border-red-100',
     green: 'bg-pastel-green text-green-600 border-green-100',
     yellow: 'bg-pastel-orange text-yellow-600 border-yellow-100',
+  };
+
+  const trendColors = {
+    blue: 'text-blue-600',
+    red: 'text-brand-red',
+    green: 'text-green-600',
+    yellow: 'text-yellow-600',
   };
 
   return (
@@ -601,6 +616,10 @@ function Widget({ title, value, icon: Icon, color, variants }: { title: string, 
       <div className="flex justify-between items-start mb-4 md:mb-6">
         <div className={cn("p-2 md:p-3 rounded-xl md:rounded-2xl border transition-transform group-hover:scale-110 duration-500", colorStyles[color])}>
           <Icon className="w-4 h-4 md:w-6 md:h-6" />
+        </div>
+        <div className="flex flex-col items-end">
+          <span className={cn("text-[10px] md:text-xs font-extrabold tracking-tight", trendColors[color])}>{trend}</span>
+          <span className="text-[7px] md:text-[8px] font-bold text-slate-400 uppercase tracking-widest">{trendLabel}</span>
         </div>
       </div>
       <div>

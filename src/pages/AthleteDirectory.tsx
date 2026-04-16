@@ -1,10 +1,8 @@
-import { useState, useEffect, FormEvent, useRef, ChangeEvent } from 'react';
-import { Filter, Search, ChevronRight, Activity, Droplets, Scale, UserPlus, Grid, List, X, Plus, Trash2, Edit2, Check, Save, Ruler, Download, Upload, FileDown } from 'lucide-react';
+import { useState, useEffect, FormEvent } from 'react';
+import { Filter, Search, ChevronRight, Activity, Droplets, Scale, UserPlus, Grid, List, X, Plus, Trash2, Edit2, Check, Save, Ruler } from 'lucide-react';
 import { athletes as initialAthletes, Athlete, Division, Sector, AssessmentEntry } from '../data/mockData';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import ExcelJS from 'exceljs';
-import { saveAs } from 'file-saver';
 
 interface AthleteDirectoryProps {
   onSelectAthlete: (id: string) => void;
@@ -20,7 +18,6 @@ export function AthleteDirectory({ onSelectAthlete }: AthleteDirectoryProps) {
   
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
@@ -48,250 +45,6 @@ export function AthleteDirectory({ onSelectAthlete }: AthleteDirectoryProps) {
     setIsAddModalOpen(false);
   };
 
-  const handleDownloadTemplate = async () => {
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Template Atlet');
-
-    worksheet.columns = [
-      { header: 'Nama', key: 'name', width: 20 },
-      { header: 'Kategori', key: 'category', width: 15 },
-      { header: 'Status', key: 'status', width: 15 },
-      { header: 'WhatsApp', key: 'whatsapp', width: 15 },
-      { header: 'TempatLahir', key: 'placeOfBirth', width: 15 },
-      { header: 'TanggalLahir', key: 'dateOfBirth', width: 15 },
-      { header: 'Umur', key: 'age', width: 10 },
-      { header: 'TinggiBadan', key: 'height', width: 15 },
-      { header: 'BeratBadan', key: 'weight', width: 15 },
-      { header: 'GolonganDarah', key: 'bloodType', width: 15 },
-      { header: 'TanganDominan', key: 'dominantHand', width: 15 },
-      { header: 'LingkarLengan', key: 'armCircumference', width: 15 },
-      { header: 'KategoriLengan', key: 'armCircumferenceCategory', width: 20 },
-      { header: 'RangeBBIdeal', key: 'armCircumferenceRangeBB', width: 15 },
-      { header: 'TargetBB', key: 'targetWeight', width: 15 },
-      { header: 'TargetBF', key: 'targetBodyFat', width: 15 },
-      { header: 'BFInBody', key: 'bfInBody', width: 15 },
-      { header: 'Bisep', key: 'bicep', width: 10 },
-      { header: 'Trisep', key: 'tricep', width: 10 },
-      { header: 'Subskapula', key: 'subscapula', width: 15 },
-      { header: 'Abdominal', key: 'abdominal', width: 15 },
-    ];
-
-    worksheet.addRow({
-      name: 'Contoh Atlet',
-      category: categories[0] || 'U-15',
-      status: 'AKTIF',
-      whatsapp: '+628123456789',
-      placeOfBirth: 'Jakarta',
-      dateOfBirth: '12 Agustus 2009',
-      age: 16,
-      height: 168,
-      weight: 65,
-      bloodType: 'O',
-      dominantHand: 'Kanan',
-      armCircumference: 32,
-      armCircumferenceCategory: 'BESAR',
-      armCircumferenceRangeBB: '60-70',
-      targetWeight: 63,
-      targetBodyFat: 12,
-      bfInBody: 15,
-      bicep: 5,
-      tricep: 8,
-      subscapula: 10,
-      abdominal: 12
-    });
-
-    const categoryList = categories.filter(c => c !== 'All').join(',');
-    for (let i = 2; i <= 1000; i++) {
-      worksheet.getCell(`B${i}`).dataValidation = {
-        type: 'list',
-        allowBlank: true,
-        formulae: [`"${categoryList}"`]
-      };
-      worksheet.getCell(`C${i}`).dataValidation = {
-        type: 'list',
-        allowBlank: true,
-        formulae: ['"AKTIF,TIDAK AKTIF"']
-      };
-    }
-
-    const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), 'template_atlet.xlsx');
-  };
-
-  const handleExport = async () => {
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Data Atlet');
-
-    worksheet.columns = [
-      { header: 'Nama', key: 'name', width: 20 },
-      { header: 'Kategori', key: 'category', width: 15 },
-      { header: 'Status', key: 'status', width: 15 },
-      { header: 'WhatsApp', key: 'whatsapp', width: 15 },
-      { header: 'TempatLahir', key: 'placeOfBirth', width: 15 },
-      { header: 'TanggalLahir', key: 'dateOfBirth', width: 15 },
-      { header: 'Umur', key: 'age', width: 10 },
-      { header: 'TinggiBadan', key: 'height', width: 15 },
-      { header: 'BeratBadan', key: 'weight', width: 15 },
-      { header: 'GolonganDarah', key: 'bloodType', width: 15 },
-      { header: 'TanganDominan', key: 'dominantHand', width: 15 },
-      { header: 'LingkarLengan', key: 'armCircumference', width: 15 },
-      { header: 'KategoriLengan', key: 'armCircumferenceCategory', width: 20 },
-      { header: 'RangeBBIdeal', key: 'armCircumferenceRangeBB', width: 15 },
-      { header: 'TargetBB', key: 'targetWeight', width: 15 },
-      { header: 'TargetBF', key: 'targetBodyFat', width: 15 },
-      { header: 'BFInBody', key: 'bfInBody', width: 15 },
-      { header: 'Bisep', key: 'bicep', width: 10 },
-      { header: 'Trisep', key: 'tricep', width: 10 },
-      { header: 'Subskapula', key: 'subscapula', width: 15 },
-      { header: 'Abdominal', key: 'abdominal', width: 15 },
-    ];
-
-    athletesList.forEach(a => {
-      worksheet.addRow({
-        name: a.name,
-        category: a.division,
-        status: a.status,
-        whatsapp: a.whatsapp || '',
-        placeOfBirth: a.placeOfBirth || '',
-        dateOfBirth: a.dateOfBirth || '',
-        age: a.age || 0,
-        height: a.height || 0,
-        weight: a.weight || 0,
-        bloodType: a.bloodType || '',
-        dominantHand: a.dominantHand || '',
-        armCircumference: a.armCircumference || 0,
-        armCircumferenceCategory: a.armCircumferenceCategory || '',
-        armCircumferenceRangeBB: a.armCircumferenceRangeBB || '',
-        targetWeight: a.targetWeight || 0,
-        targetBodyFat: a.targetBodyFat || 0,
-        bfInBody: a.bodyFatInBody || 0,
-        bicep: a.assessmentHistory[0]?.bicep || 0,
-        tricep: a.assessmentHistory[0]?.tricep || 0,
-        subscapula: a.assessmentHistory[0]?.subscapula || 0,
-        abdominal: a.assessmentHistory[0]?.abdominal || 0
-      });
-    });
-
-    const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), 'data_atlet.xlsx');
-  };
-
-  const handleImport = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(await file.arrayBuffer());
-    const worksheet = workbook.worksheets[0];
-    
-    const newAthletes: Athlete[] = [];
-    
-    worksheet.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) return; // Skip header
-      
-      const values = row.values as any[];
-      const getVal = (idx: number) => {
-        const v = values[idx];
-        if (v && typeof v === 'object' && v.result !== undefined) return v.result;
-        if (v && typeof v === 'object' && v.text !== undefined) return v.text;
-        return v;
-      };
-
-      const name = getVal(1) || 'Unknown';
-      const category = getVal(2) || categories[0];
-      const status = getVal(3) || 'AKTIF';
-      const whatsapp = getVal(4) || '+62';
-      const placeOfBirth = getVal(5) || '';
-      const dateOfBirth = getVal(6) || '';
-      const age = parseInt(getVal(7)) || 0;
-      const height = parseFloat(getVal(8)) || 0;
-      const weight = parseFloat(getVal(9)) || 0;
-      const bloodType = getVal(10) || '';
-      const dominantHand = getVal(11) || '';
-      const armCircumference = parseFloat(getVal(12)) || 0;
-      const armCircumferenceCategory = getVal(13) || '';
-      const armCircumferenceRangeBB = getVal(14) || '';
-      const targetWeight = parseFloat(getVal(15)) || 0;
-      const targetBodyFat = parseFloat(getVal(16)) || 0;
-      const bfInBody = parseFloat(getVal(17)) || 0;
-      const bicep = parseFloat(getVal(18)) || 0;
-      const tricep = parseFloat(getVal(19)) || 0;
-      const subscapula = parseFloat(getVal(20)) || 0;
-      const abdominal = parseFloat(getVal(21)) || 0;
-
-      const total = bicep + tricep + subscapula + abdominal;
-      const bfCaliper = Number((total * 0.4).toFixed(1));
-      const fm = Number((weight * (bfCaliper / 100)).toFixed(2));
-      const lbm = Number((weight - fm).toFixed(2));
-
-      newAthletes.push({
-        id: Math.random().toString(36).substr(2, 9),
-        name: String(name),
-        division: String(category) as any,
-        sector: '' as any,
-        status: String(status) as any,
-        weight,
-        targetWeight,
-        hydrationLevel: 95,
-        sleepHours: 8,
-        rpe: 5,
-        imageUrl: `https://picsum.photos/seed/${name}/200/200`,
-        compliance: 100,
-        placeOfBirth: String(placeOfBirth),
-        dateOfBirth: String(dateOfBirth),
-        age,
-        gender: 'Laki-laki',
-        height,
-        armCircumference,
-        armCircumferenceCategory: String(armCircumferenceCategory),
-        armCircumferenceRangeBB: String(armCircumferenceRangeBB),
-        bodyFatCaliper: bfCaliper,
-        bodyFatInBody: bfInBody,
-        targetBodyFat,
-        skeletalMuscleMass: lbm,
-        bmr: 1700,
-        exerciseCalories: 1447,
-        presentEnergy: 4230,
-        dailyCalories: 3500,
-        foodAllergies: [],
-        foodPreferences: [],
-        supplements: [],
-        bloodLab: { hb: 15, ferritin: 100, vitD: 40 },
-        sweatRate: 1.0,
-        whatsapp: String(whatsapp),
-        email: '',
-        bloodType: String(bloodType),
-        dominantHand: String(dominantHand) as any,
-        joinYear: new Date().getFullYear(),
-        apparelSize: { shirt: 'L', shoe: 42 },
-        socialMedia: { instagram: '' },
-        emergencyContact: { name: '', relation: '', phone: '' },
-        notes: [],
-        injuries: [],
-        assessmentHistory: [{
-          date: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' }).toUpperCase(),
-          bfInBody,
-          bicep,
-          tricep,
-          subscapula,
-          abdominal,
-          total,
-          bfCaliper,
-          weight,
-          lbm,
-          fm
-        }]
-      });
-    });
-
-    setAthletesList([...athletesList, ...newAthletes]);
-    initialAthletes.push(...newAthletes);
-    
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
   return (
     <div className="p-4 md:p-8 space-y-6 md:space-y-8 h-full flex flex-col overflow-hidden custom-scrollbar">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
@@ -311,29 +64,6 @@ export function AthleteDirectory({ onSelectAthlete }: AthleteDirectoryProps) {
             />
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex bg-slate-50 border border-slate-200 rounded-xl p-1 flex-1 md:flex-none justify-center">
-              <button 
-                onClick={handleDownloadTemplate}
-                title="Download Template CSV"
-                className="p-2 rounded-lg transition-all text-slate-400 hover:text-slate-600 flex-1 md:flex-none flex justify-center"
-              >
-                <FileDown className="w-4 h-4" />
-              </button>
-              <button 
-                onClick={() => fileInputRef.current?.click()}
-                title="Import CSV"
-                className="p-2 rounded-lg transition-all text-slate-400 hover:text-slate-600 flex-1 md:flex-none flex justify-center"
-              >
-                <Upload className="w-4 h-4" />
-              </button>
-              <button 
-                onClick={handleExport}
-                title="Export CSV"
-                className="p-2 rounded-lg transition-all text-slate-400 hover:text-slate-600 flex-1 md:flex-none flex justify-center"
-              >
-                <Download className="w-4 h-4" />
-              </button>
-            </div>
             <div className="flex bg-slate-50 border border-slate-200 rounded-xl p-1 flex-1 md:flex-none justify-center">
               <button 
                 onClick={() => setViewMode('grid')}
@@ -356,13 +86,6 @@ export function AthleteDirectory({ onSelectAthlete }: AthleteDirectoryProps) {
               <span className="hidden md:inline">Tambah Atlet</span>
               <span className="md:hidden">Tambah</span>
             </button>
-            <input 
-              type="file" 
-              accept=".xlsx" 
-              ref={fileInputRef} 
-              onChange={handleImport} 
-              className="hidden" 
-            />
           </div>
         </div>
       </div>
@@ -642,37 +365,29 @@ function AthleteCard({ athlete, viewMode, onClick }: AthleteCardProps) {
 }
 
 function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boolean, onClose: () => void, onAdd: (a: Athlete) => void, categories: string[] }) {
-  const initialFormState = {
+  const [formData, setFormData] = useState({
     name: '',
     category: categories[0],
-    status: 'AKTIF' as any,
+    status: 'Fit' as any,
     whatsapp: '+62',
     placeOfBirth: '',
     dateOfBirth: '',
-    age: 0,
-    height: 0,
-    weight: 0,
-    bloodType: '',
-    dominantHand: '' as any,
-    armCircumference: 0,
-    armCircumferenceCategory: '',
-    armCircumferenceRangeBB: '',
-    targetWeight: 0,
-    targetBodyFat: 0,
-    bfInBody: 0,
-    bicep: 0,
-    tricep: 0,
-    subscapula: 0,
-    abdominal: 0
-  };
-
-  const [formData, setFormData] = useState(initialFormState);
-
-  useEffect(() => {
-    if (isOpen) {
-      setFormData({ ...initialFormState, category: categories[0] });
-    }
-  }, [isOpen, categories]);
+    age: 16,
+    height: 168,
+    weight: 77.1,
+    bloodType: 'O',
+    dominantHand: 'Kanan' as any,
+    armCircumference: 32.5,
+    armCircumferenceCategory: 'BESAR',
+    armCircumferenceRangeBB: '64-73',
+    targetWeight: 72,
+    targetBodyFat: 11,
+    bfInBody: 20.4,
+    bicep: 3,
+    tricep: 5,
+    subscapula: 14,
+    abdominal: 15
+  });
 
   if (!isOpen) return null;
 
@@ -788,8 +503,9 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                   onChange={e => setFormData({...formData, status: e.target.value as any})}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all"
                 >
-                  <option value="AKTIF">AKTIF</option>
-                  <option value="TIDAK AKTIF">TIDAK AKTIF</option>
+                  <option value="Fit">Fit</option>
+                  <option value="Cedera">Cedera</option>
+                  <option value="Recovery">Pemulihan</option>
                 </select>
               </div>
               <div className="space-y-1.5">
@@ -843,8 +559,8 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Umur</label>
                 <input 
                   type="number" 
-                  value={formData.age || ''}
-                  onChange={e => setFormData({...formData, age: parseInt(e.target.value) || 0})}
+                  value={formData.age}
+                  onChange={e => setFormData({...formData, age: parseInt(e.target.value)})}
                   placeholder="16" 
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
@@ -853,31 +569,35 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Tinggi Badan (cm)</label>
                 <input 
                   type="number" 
-                  value={formData.height || ''}
-                  onChange={e => setFormData({...formData, height: parseInt(e.target.value) || 0})}
+                  value={formData.height}
+                  onChange={e => setFormData({...formData, height: parseInt(e.target.value)})}
                   placeholder="168" 
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Golongan Darah</label>
-                <input 
-                  type="text"
+                <select 
                   value={formData.bloodType}
                   onChange={e => setFormData({...formData, bloodType: e.target.value})}
-                  placeholder="Contoh: O"
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all"
-                />
+                >
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                  <option value="AB">AB</option>
+                  <option value="O">O</option>
+                </select>
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Tangan Dominan</label>
-                <input 
-                  type="text"
+                <select 
                   value={formData.dominantHand}
                   onChange={e => setFormData({...formData, dominantHand: e.target.value as any})}
-                  placeholder="Contoh: Kanan"
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all"
-                />
+                >
+                  <option value="Kanan">Kanan</option>
+                  <option value="Kidal">Kidal</option>
+                </select>
               </div>
             </div>
           </div>
@@ -891,8 +611,8 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <input 
                   type="number" 
                   step="0.1" 
-                  value={formData.armCircumference || ''}
-                  onChange={e => setFormData({...formData, armCircumference: parseFloat(e.target.value) || 0})}
+                  value={formData.armCircumference}
+                  onChange={e => setFormData({...formData, armCircumference: parseFloat(e.target.value)})}
                   placeholder="32.5" 
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
@@ -922,8 +642,8 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <input 
                   type="number" 
                   step="0.1" 
-                  value={formData.targetWeight || ''}
-                  onChange={e => setFormData({...formData, targetWeight: parseFloat(e.target.value) || 0})}
+                  value={formData.targetWeight}
+                  onChange={e => setFormData({...formData, targetWeight: parseFloat(e.target.value)})}
                   placeholder="72" 
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
@@ -933,8 +653,8 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <input 
                   type="number" 
                   step="0.1" 
-                  value={formData.targetBodyFat || ''}
-                  onChange={e => setFormData({...formData, targetBodyFat: parseFloat(e.target.value) || 0})}
+                  value={formData.targetBodyFat}
+                  onChange={e => setFormData({...formData, targetBodyFat: parseFloat(e.target.value)})}
                   placeholder="11" 
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
@@ -951,8 +671,8 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <input 
                   type="number" 
                   step="0.1" 
-                  value={formData.weight || ''}
-                  onChange={e => setFormData({...formData, weight: parseFloat(e.target.value) || 0})}
+                  value={formData.weight}
+                  onChange={e => setFormData({...formData, weight: parseFloat(e.target.value)})}
                   placeholder="77.1" 
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
@@ -962,8 +682,8 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <input 
                   type="number" 
                   step="0.1" 
-                  value={formData.bfInBody || ''}
-                  onChange={e => setFormData({...formData, bfInBody: parseFloat(e.target.value) || 0})}
+                  value={formData.bfInBody}
+                  onChange={e => setFormData({...formData, bfInBody: parseFloat(e.target.value)})}
                   placeholder="20.4" 
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
@@ -975,8 +695,8 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <input 
                   type="number" 
                   step="0.1" 
-                  value={formData.bicep || ''}
-                  onChange={e => setFormData({...formData, bicep: parseFloat(e.target.value) || 0})}
+                  value={formData.bicep}
+                  onChange={e => setFormData({...formData, bicep: parseFloat(e.target.value)})}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
               </div>
@@ -985,8 +705,8 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <input 
                   type="number" 
                   step="0.1" 
-                  value={formData.tricep || ''}
-                  onChange={e => setFormData({...formData, tricep: parseFloat(e.target.value) || 0})}
+                  value={formData.tricep}
+                  onChange={e => setFormData({...formData, tricep: parseFloat(e.target.value)})}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
               </div>
@@ -995,8 +715,8 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <input 
                   type="number" 
                   step="0.1" 
-                  value={formData.subscapula || ''}
-                  onChange={e => setFormData({...formData, subscapula: parseFloat(e.target.value) || 0})}
+                  value={formData.subscapula}
+                  onChange={e => setFormData({...formData, subscapula: parseFloat(e.target.value)})}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
               </div>
@@ -1005,8 +725,8 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <input 
                   type="number" 
                   step="0.1" 
-                  value={formData.abdominal || ''}
-                  onChange={e => setFormData({...formData, abdominal: parseFloat(e.target.value) || 0})}
+                  value={formData.abdominal}
+                  onChange={e => setFormData({...formData, abdominal: parseFloat(e.target.value)})}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
               </div>
