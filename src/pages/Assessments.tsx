@@ -1,9 +1,49 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Download, Upload, Save, Trash2, Plus, FileSpreadsheet, CheckCircle2, AlertCircle, Search, Filter, ArrowRight, Calendar } from 'lucide-react';
+import { Download, Upload, Save, Trash2, Plus, FileSpreadsheet, CheckCircle2, AlertCircle, Search, Filter, ArrowRight, Calendar, Table as TableIcon, Edit3 } from 'lucide-react';
 import { athletes as initialAthletes, AssessmentEntry, Athlete } from '../data/mockData';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
+
+const bodyFatChartMen: Record<number, number> = {
+  15: 4.8, 16: 5.44, 17: 6.08, 18: 6.72, 19: 7.36, 20: 8, 21: 8.5, 22: 9, 23: 9.5, 24: 10,
+  25: 10.5, 26: 11, 27: 11.5, 28: 12, 29: 12.5, 30: 13, 31: 13.34, 32: 13.68, 33: 14.02, 34: 14.36,
+  35: 14.7, 36: 15.06, 37: 15.42, 38: 15.78, 39: 16.14, 40: 16.5, 41: 16.74, 42: 16.98, 43: 17.22, 44: 17.46,
+  45: 17.7, 46: 17.96, 47: 18.22, 48: 18.48, 49: 18.74, 50: 19, 51: 19.2, 52: 19.4, 53: 19.6, 54: 19.8,
+  55: 20, 56: 20.24, 57: 20.48, 58: 20.72, 59: 20.96, 60: 21.2, 61: 21.4, 62: 21.6, 63: 21.8, 64: 22,
+  65: 22.2, 66: 22.36, 67: 22.52, 68: 22.68, 69: 22.84, 70: 23, 75: 24, 80: 24.8, 85: 25.5, 90: 26.3,
+  95: 27, 100: 27.5, 105: 28.2, 110: 28.8, 115: 29.5, 120: 30, 125: 30.5, 130: 31, 135: 31.5, 140: 32,
+  150: 33, 160: 33.5, 170: 34.5, 180: 35.2, 190: 36, 200: 36.5
+};
+
+const bodyFatChartWomen: Record<number, number> = {
+  15: 10.5, 16: 11.2, 17: 11.9, 18: 12.6, 19: 13.3, 20: 14, 21: 14.56, 22: 15.12, 23: 15.68, 24: 16.24,
+  25: 16.8, 26: 17.5, 27: 18, 28: 18.5, 29: 19, 30: 19.5, 31: 19.9, 32: 20.3, 33: 20.7, 34: 21.1,
+  35: 21.5, 36: 21.9, 37: 22.3, 38: 22.7, 39: 23.1, 40: 23.5, 41: 23.8, 42: 24.1, 43: 24.4, 44: 24.7,
+  45: 25, 46: 25.3, 47: 25.6, 48: 25.9, 49: 26.2, 50: 26.5, 51: 26.76, 52: 27.02, 53: 27.28, 54: 27.54,
+  55: 27.8, 56: 28.04, 57: 28.3, 58: 28.56, 59: 28.82, 60: 29, 61: 29.24, 62: 29.48, 63: 29.72, 64: 29.96,
+  65: 30.2, 66: 30.4, 67: 30.6, 68: 30.8, 69: 31, 70: 31.2, 75: 32.2, 80: 33, 85: 34, 90: 34.8,
+  95: 35.5, 100: 36.5, 105: 37, 110: 37.7, 115: 38.5, 120: 39, 125: 39.5, 130: 40.2, 135: 40.8, 140: 41.3,
+  150: 42.3, 160: 43.2, 170: 44, 180: 45, 190: 45.8, 200: 46.5
+};
+
+function getBFFromTable(sum: number, gender: 'Laki-laki' | 'Perempuan'): number | null {
+  if (sum < 15) return null;
+  const chart = gender === 'Laki-laki' ? bodyFatChartMen : bodyFatChartWomen;
+  if (chart[sum] !== undefined) return chart[sum];
+  
+  // Find closest lower bound
+  const keys = Object.keys(chart).map(Number).sort((a, b) => a - b);
+  let lowerBound = keys[0];
+  for (const key of keys) {
+    if (key <= sum) {
+      lowerBound = key;
+    } else {
+      break;
+    }
+  }
+  return chart[lowerBound];
+}
 
 export function Assessments() {
   const [athletes, setAthletes] = useState<Athlete[]>(initialAthletes);
@@ -16,6 +56,7 @@ export function Assessments() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [focusedAthleteId, setFocusedAthleteId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'input' | 'reference'>('input');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -54,9 +95,17 @@ export function Assessments() {
         const a = Number(updated.abdominal || 0);
         updated.total = b + t + sc + a;
         
-        // Simple BF% calculation (placeholder formula)
-        // BF% = (Total * 0.25) + 2
-        updated.bfCaliper = Number(((updated.total * 0.25) + 2).toFixed(1));
+        // Use the Body Fat Chart logic based on gender
+        const athlete = athletes.find(a => a.id === athleteId);
+        if (athlete && updated.total >= 15) {
+          const bf = getBFFromTable(updated.total, athlete.gender);
+          if (bf !== null) {
+            updated.bfCaliper = bf;
+          }
+        } else {
+          // Fallback if total < 15 or athlete not found
+          updated.bfCaliper = Number(((updated.total * 0.25) + 2).toFixed(1));
+        }
       }
 
       if (field === 'weight' || field === 'bfCaliper') {
@@ -299,12 +348,35 @@ export function Assessments() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex items-center gap-6 mb-6 border-b border-slate-200 px-2">
+        <button
+          onClick={() => setActiveTab('input')}
+          className={cn(
+            "pb-3 text-xs font-black uppercase tracking-widest transition-all border-b-2 relative",
+            activeTab === 'input' ? "border-brand-red text-brand-red" : "border-transparent text-slate-400 hover:text-slate-600"
+          )}
+        >
+          Input Data
+        </button>
+        <button
+          onClick={() => setActiveTab('reference')}
+          className={cn(
+            "pb-3 text-xs font-black uppercase tracking-widest transition-all border-b-2 relative",
+            activeTab === 'reference' ? "border-brand-red text-brand-red" : "border-transparent text-slate-400 hover:text-slate-600"
+          )}
+        >
+          Referensi Body Fat
+        </button>
+      </div>
+
       {/* Main Content Area */}
-      <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-0">
-        {/* Main Table */}
-        <div className="flex-1 bg-white border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-          <div className="overflow-x-auto custom-scrollbar">
-            <table className="w-full text-left border-collapse">
+      {activeTab === 'input' ? (
+        <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-0">
+          {/* Main Table */}
+          <div className="flex-1 bg-white border border-slate-200 shadow-sm overflow-hidden flex flex-col rounded-[2rem]">
+            <div className="overflow-x-auto custom-scrollbar">
+              <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-blue-50 border-b border-blue-100">
                   <th className="px-6 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest sticky left-0 bg-blue-50 z-10">Atlet</th>
@@ -595,7 +667,97 @@ export function Assessments() {
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+        </div>
+      ) : (
+        <div className="flex-1 bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden flex flex-col p-8">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Body Fat Chart Reference</h2>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Tabel konversi Skinfold SUM ke BF%</p>
+            </div>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-4 grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Men Chart */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-black text-blue-600 uppercase tracking-widest bg-blue-50 px-4 py-2 rounded-xl text-center">Body Fat Chart - Man</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-100">
+                      <th className="px-3 py-2 font-black text-slate-900 border border-slate-200">SUM</th>
+                      <th className="px-3 py-2 font-black text-slate-900 border border-slate-200">BF %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(bodyFatChartMen).slice(0, 38).map(([sum, bf]) => (
+                      <tr key={sum} className="even:bg-slate-50">
+                        <td className="px-3 py-1.5 font-bold text-slate-700 border border-slate-200 text-center">{sum}</td>
+                        <td className="px-3 py-1.5 font-medium text-slate-600 border border-slate-200 text-center">{bf}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-100">
+                      <th className="px-3 py-2 font-black text-slate-900 border border-slate-200">SUM</th>
+                      <th className="px-3 py-2 font-black text-slate-900 border border-slate-200">BF %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(bodyFatChartMen).slice(38).map(([sum, bf]) => (
+                      <tr key={sum} className="even:bg-slate-50">
+                        <td className="px-3 py-1.5 font-bold text-slate-700 border border-slate-200 text-center">{sum}</td>
+                        <td className="px-3 py-1.5 font-medium text-slate-600 border border-slate-200 text-center">{bf}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Women Chart */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-black text-rose-600 uppercase tracking-widest bg-rose-50 px-4 py-2 rounded-xl text-center">Body Fat Chart - Women</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-100">
+                      <th className="px-3 py-2 font-black text-slate-900 border border-slate-200">SUM</th>
+                      <th className="px-3 py-2 font-black text-slate-900 border border-slate-200">BF %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(bodyFatChartWomen).slice(0, 38).map(([sum, bf]) => (
+                      <tr key={sum} className="even:bg-slate-50">
+                        <td className="px-3 py-1.5 font-bold text-slate-700 border border-slate-200 text-center">{sum}</td>
+                        <td className="px-3 py-1.5 font-medium text-slate-600 border border-slate-200 text-center">{bf}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-100">
+                      <th className="px-3 py-2 font-black text-slate-900 border border-slate-200">SUM</th>
+                      <th className="px-3 py-2 font-black text-slate-900 border border-slate-200">BF %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(bodyFatChartWomen).slice(38).map(([sum, bf]) => (
+                      <tr key={sum} className="even:bg-slate-50">
+                        <td className="px-3 py-1.5 font-bold text-slate-700 border border-slate-200 text-center">{sum}</td>
+                        <td className="px-3 py-1.5 font-medium text-slate-600 border border-slate-200 text-center">{bf}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Success Notification */}
       <AnimatePresence>
