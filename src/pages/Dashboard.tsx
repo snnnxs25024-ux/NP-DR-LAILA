@@ -15,7 +15,8 @@ import {
   ChevronRight,
   PieChart as PieChartIcon
 } from 'lucide-react';
-import { athletes } from '../data/mockData';
+import { supabase } from '../lib/supabase';
+import { Athlete } from '../types'; // Keep interface definition
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { downloadCSV } from '../lib/exportUtils';
@@ -30,12 +31,39 @@ import {
   AreaChart,
   Area
 } from 'recharts';
+import { useCategories } from '../hooks/useCategories';
 
 export function Dashboard() {
+  const [athletes, setAthletes] = useState<Athlete[]>([]);
+  const { categories } = useCategories();
   const [isAlertsModalOpen, setIsAlertsModalOpen] = useState(false);
   const [activeAthleteId, setActiveAthleteId] = useState<string | null>(null);
   const [dashboardSearchQuery, setDashboardSearchQuery] = useState('');
   const [timeRange, setTimeRange] = useState<'1M' | '3M' | '6M'>('6M');
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAthletes = async () => {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('athletes')
+        .select(`
+          *,
+          categories:category_id (name)
+        `);
+      if (error) {
+        console.error('Error fetching athletes:', error);
+      } else {
+        const mappedData = data.map((a: any) => ({
+          ...a,
+          category_name: a.categories?.name || 'Unknown'
+        }));
+        setAthletes(mappedData as Athlete[]);
+      }
+      setIsLoading(false);
+    };
+    fetchAthletes();
+  }, []);
 
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
@@ -58,18 +86,18 @@ export function Dashboard() {
   }, []);
 
   // Stats Calculations
-  const activeCount = athletes.filter(a => a.status === 'Fit').length;
-  const nonActiveCount = athletes.filter(a => a.status === 'Cedera' || a.status === 'Pemulihan').length;
-  const avgCompliance = Math.round(athletes.reduce((acc, curr) => acc + curr.compliance, 0) / athletes.length);
+  const activeCount = athletes.filter(a => a.status === 'AKTIF').length;
+  const nonActiveCount = athletes.filter(a => a.status === 'NON AKTIF').length;
+  const avgCompliance = athletes.length > 0 ? 100 : 0; // Simplified for now
   
   // Target Achievement Logic
   const targetStatus = athletes.map(a => {
     // Strict logic: must exactly match target to be considered "reached"
-    const weightDiff = Math.abs(a.weight - a.targetWeight);
-    const bfDiff = Math.abs(a.bodyFatInBody - a.targetBodyFat);
+    const weightDiff = Math.abs((a.weight || 0) - a.target_weight);
+    const bfDiff = Math.abs((a.bf_in_body || 0) - a.target_body_fat);
     
-    const weightReached = a.weight === a.targetWeight;
-    const bfReached = a.bodyFatInBody === a.targetBodyFat;
+    const weightReached = a.weight === a.target_weight;
+    const bfReached = a.bf_in_body === a.target_body_fat;
     const reached = weightReached && bfReached;
 
     let missedLabel = "";
@@ -86,12 +114,11 @@ export function Dashboard() {
   const inProgressAthletes = targetStatus.filter(a => !a.reached && a.name.toLowerCase().includes(dashboardSearchQuery.toLowerCase()));
 
   // Category Summary
-  const divisions = Array.from(new Set(athletes.map(a => a.division)));
-  const categorySummary = divisions.map(div => {
-    const divAthletes = targetStatus.filter(a => a.division === div);
+  const categorySummary = categories.map(cat => {
+    const divAthletes = targetStatus.filter(a => a.category_id === cat.id);
     const reachedCount = divAthletes.filter(a => a.reached).length;
-    const percentage = Math.round((reachedCount / divAthletes.length) * 100);
-    return { name: div, percentage, total: divAthletes.length, reached: reachedCount };
+    const percentage = divAthletes.length > 0 ? Math.round((reachedCount / divAthletes.length) * 100) : 0;
+    return { name: cat.name, percentage, total: divAthletes.length, reached: reachedCount };
   });
 
   // Mock Global Performance Data
@@ -186,8 +213,6 @@ export function Dashboard() {
           title="Total Atlet" 
           value={athletes.length.toString()} 
           icon={Users} 
-          trend="+2" 
-          trendLabel="vs bulan lalu"
           color="blue" 
         />
         <Widget 
@@ -195,8 +220,6 @@ export function Dashboard() {
           title="Atlet Aktif" 
           value={activeCount.toString()} 
           icon={UserCheck} 
-          trend="Fit" 
-          trendLabel="siap bertanding"
           color="green" 
         />
         <Widget 
@@ -204,8 +227,6 @@ export function Dashboard() {
           title="Non-Aktif" 
           value={nonActiveCount.toString()} 
           icon={UserMinus} 
-          trend={nonActiveCount > 0 ? "Waspada" : "Aman"} 
-          trendLabel="cedera/pemulihan"
           color="red" 
         />
         <Widget 
@@ -213,8 +234,6 @@ export function Dashboard() {
           title="Target Tercapai" 
           value={reachedAthletes.length.toString()} 
           icon={Target} 
-          trend={`${Math.round((reachedAthletes.length / athletes.length) * 100)}%`} 
-          trendLabel="dari total atlet"
           color="yellow" 
         />
       </div>
@@ -286,20 +305,14 @@ export function Dashboard() {
               <div className="space-y-2 max-h-[350px] overflow-y-auto custom-scrollbar pr-2">
                 {reachedAthletes.map(athlete => (
                   <div key={athlete.id} className="athlete-detail-trigger">
-                    <div 
+                      <div className="flex items-center justify-between p-3 rounded-2xl border transition-all cursor-pointer"
                       onClick={() => setActiveAthleteId(activeAthleteId === athlete.id ? null : athlete.id)}
-                      className={cn(
-                        "flex items-center justify-between p-3 rounded-2xl border transition-all cursor-pointer",
-                        activeAthleteId === athlete.id 
-                          ? "bg-emerald-100 border-emerald-400 shadow-md" 
-                          : "bg-emerald-50/30 border-emerald-100/50 hover:border-emerald-300"
-                      )}
                     >
                       <div className="flex items-center gap-3">
-                        <img src={athlete.imageUrl} alt="" className="w-8 h-8 rounded-lg object-cover" />
+                        <img src={athlete.image_url} alt="" className="w-8 h-8 rounded-lg object-cover" />
                         <span className="text-sm font-bold text-slate-700">{athlete.name}</span>
                       </div>
-                      <div className="text-[10px] font-black text-emerald-600 uppercase">{athlete.division}</div>
+                      <div className="text-[10px] font-black text-emerald-600 uppercase">{athlete.category_name}</div>
                     </div>
                     
                     {/* Detail Card (Expanded) */}
@@ -323,11 +336,11 @@ export function Dashboard() {
                               </div>
                               <div className="space-y-1">
                                 <span className="text-[9px] font-bold text-slate-400 uppercase block">BB / Target</span>
-                                <span className="text-xs font-black text-slate-700">{athlete.weight} / {athlete.targetWeight} kg</span>
+                                <span className="text-xs font-black text-slate-700">{athlete.weight} / {athlete.target_weight} kg</span>
                               </div>
                               <div className="space-y-1">
                                 <span className="text-[9px] font-bold text-slate-400 uppercase block">BF / Target</span>
-                                <span className="text-xs font-black text-slate-700">{athlete.bodyFatInBody}% / {athlete.targetBodyFat}%</span>
+                                <span className="text-xs font-black text-slate-700">{athlete.bf_in_body}% / {athlete.target_body_fat}%</span>
                               </div>
                             </div>
                           </div>
@@ -361,11 +374,11 @@ export function Dashboard() {
                       )}
                     >
                       <div className="flex items-center gap-3">
-                        <img src={athlete.imageUrl} alt="" className="w-8 h-8 rounded-lg object-cover" />
+                        <img src={athlete.image_url} alt="" className="w-8 h-8 rounded-lg object-cover" />
                         <span className="text-sm font-bold text-slate-700">{athlete.name}</span>
                       </div>
                       <div className="flex flex-col items-end">
-                        <span className="text-[10px] font-black text-slate-400 uppercase">{athlete.division}</span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase">{athlete.category_name}</span>
                         <span className="text-[9px] font-black text-brand-red uppercase tracking-widest">{athlete.missedLabel}</span>
                       </div>
                     </div>
@@ -392,13 +405,13 @@ export function Dashboard() {
                               <div className="space-y-1">
                                 <span className="text-[9px] font-bold text-slate-400 uppercase block">BB / Target</span>
                                 <span className={cn("text-xs font-black", athlete.weightReached ? "text-emerald-600" : "text-brand-red")}>
-                                  {athlete.weight} / {athlete.targetWeight} kg
+                                  {athlete.weight} / {athlete.target_weight} kg
                                 </span>
                               </div>
                               <div className="space-y-1">
                                 <span className="text-[9px] font-bold text-slate-400 uppercase block">BF / Target</span>
                                 <span className={cn("text-xs font-black", athlete.bfReached ? "text-emerald-600" : "text-brand-red")}>
-                                  {athlete.bodyFatInBody}% / {athlete.targetBodyFat}%
+                                  {athlete.bf_in_body}% / {athlete.target_body_fat}%
                                 </span>
                               </div>
                             </div>
@@ -557,19 +570,14 @@ export function Dashboard() {
               </div>
               
               <div className="p-8 max-h-[60vh] overflow-y-auto custom-scrollbar space-y-4">
-                {athletes.filter(a => a.hydrationLevel < 90 || Math.abs(a.weight - a.targetWeight) > 1.5).map(athlete => (
+                {athletes.filter(a => (a.weight || 0) > (a.target_weight + 1.5)).map(athlete => (
                   <div key={athlete.id} className="p-6 rounded-3xl bg-slate-50 border border-slate-100 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <img src={athlete.imageUrl} alt="" className="w-12 h-12 rounded-2xl object-cover" />
+                      <img src={athlete.image_url} alt="" className="w-12 h-12 rounded-2xl object-cover" />
                       <div>
                         <div className="text-base font-black text-slate-900">{athlete.name}</div>
                         <div className="flex gap-3 mt-1">
-                          {athlete.hydrationLevel < 90 && (
-                            <span className="text-[10px] font-black text-brand-red uppercase tracking-widest">Hidrasi: {athlete.hydrationLevel}%</span>
-                          )}
-                          {Math.abs(athlete.weight - athlete.targetWeight) > 1.5 && (
-                            <span className="text-[10px] font-black text-yellow-600 uppercase tracking-widest">Berat: {athlete.weight}kg (Target: {athlete.targetWeight}kg)</span>
-                          )}
+                          <span className="text-[10px] font-black text-yellow-600 uppercase tracking-widest">Berat: {athlete.weight}kg (Target: {athlete.target_weight}kg)</span>
                         </div>
                       </div>
                     </div>
@@ -593,19 +601,12 @@ export function Dashboard() {
   );
 }
 
-function Widget({ title, value, icon: Icon, trend, trendLabel, color, variants }: { title: string, value: string, icon: any, trend: string, trendLabel: string, color: 'blue' | 'red' | 'green' | 'yellow', variants: any }) {
+function Widget({ title, value, icon: Icon, color, variants }: { title: string, value: string, icon: any, color: 'blue' | 'red' | 'green' | 'yellow', variants: any }) {
   const colorStyles = {
     blue: 'bg-pastel-blue text-blue-600 border-blue-100',
     red: 'bg-pastel-red text-brand-red border-red-100',
     green: 'bg-pastel-green text-green-600 border-green-100',
     yellow: 'bg-pastel-orange text-yellow-600 border-yellow-100',
-  };
-
-  const trendColors = {
-    blue: 'text-blue-600',
-    red: 'text-brand-red',
-    green: 'text-green-600',
-    yellow: 'text-yellow-600',
   };
 
   return (
@@ -616,10 +617,6 @@ function Widget({ title, value, icon: Icon, trend, trendLabel, color, variants }
       <div className="flex justify-between items-start mb-4 md:mb-6">
         <div className={cn("p-2 md:p-3 rounded-xl md:rounded-2xl border transition-transform group-hover:scale-110 duration-500", colorStyles[color])}>
           <Icon className="w-4 h-4 md:w-6 md:h-6" />
-        </div>
-        <div className="flex flex-col items-end">
-          <span className={cn("text-[10px] md:text-xs font-extrabold tracking-tight", trendColors[color])}>{trend}</span>
-          <span className="text-[7px] md:text-[8px] font-bold text-slate-400 uppercase tracking-widest">{trendLabel}</span>
         </div>
       </div>
       <div>

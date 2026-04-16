@@ -1,21 +1,107 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Download, Upload, Save, Trash2, Plus, FileSpreadsheet, CheckCircle2, AlertCircle, Search, Filter, ArrowRight, Calendar } from 'lucide-react';
-import { athletes as initialAthletes, AssessmentEntry, Athlete } from '../data/mockData';
+import { Download, Upload, Save, Trash2, Plus, FileSpreadsheet, CheckCircle2, AlertCircle, Search, Filter, ArrowRight, Calendar, Table as TableIcon, Edit3 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { Athlete, AssessmentEntry } from '../types';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
 
+const bodyFatChartMen: Record<number, number> = {
+  15: 4.8, 16: 5.44, 17: 6.08, 18: 6.72, 19: 7.36, 20: 8, 21: 8.5, 22: 9, 23: 9.5, 24: 10,
+  25: 10.5, 26: 11, 27: 11.5, 28: 12, 29: 12.5, 30: 13, 31: 13.34, 32: 13.68, 33: 14.02, 34: 14.36,
+  35: 14.7, 36: 15.06, 37: 15.42, 38: 15.78, 39: 16.14, 40: 16.5, 41: 16.74, 42: 16.98, 43: 17.22, 44: 17.46,
+  45: 17.7, 46: 17.96, 47: 18.22, 48: 18.48, 49: 18.74, 50: 19, 51: 19.2, 52: 19.4, 53: 19.6, 54: 19.8,
+  55: 20, 56: 20.24, 57: 20.48, 58: 20.72, 59: 20.96, 60: 21.2, 61: 21.4, 62: 21.6, 63: 21.8, 64: 22,
+  65: 22.2, 66: 22.36, 67: 22.52, 68: 22.68, 69: 22.84, 70: 23, 75: 24, 80: 24.8, 85: 25.5, 90: 26.3,
+  95: 27, 100: 27.5, 105: 28.2, 110: 28.8, 115: 29.5, 120: 30, 125: 30.5, 130: 31, 135: 31.5, 140: 32,
+  150: 33, 160: 33.5, 170: 34.5, 180: 35.2, 190: 36, 200: 36.5
+};
+
+const bodyFatChartWomen: Record<number, number> = {
+  15: 10.5, 16: 11.2, 17: 11.9, 18: 12.6, 19: 13.3, 20: 14, 21: 14.56, 22: 15.12, 23: 15.68, 24: 16.24,
+  25: 16.8, 26: 17.5, 27: 18, 28: 18.5, 29: 19, 30: 19.5, 31: 19.9, 32: 20.3, 33: 20.7, 34: 21.1,
+  35: 21.5, 36: 21.9, 37: 22.3, 38: 22.7, 39: 23.1, 40: 23.5, 41: 23.8, 42: 24.1, 43: 24.4, 44: 24.7,
+  45: 25, 46: 25.3, 47: 25.6, 48: 25.9, 49: 26.2, 50: 26.5, 51: 26.76, 52: 27.02, 53: 27.28, 54: 27.54,
+  55: 27.8, 56: 28.04, 57: 28.3, 58: 28.56, 59: 28.82, 60: 29, 61: 29.24, 62: 29.48, 63: 29.72, 64: 29.96,
+  65: 30.2, 66: 30.4, 67: 30.6, 68: 30.8, 69: 31, 70: 31.2, 75: 32.2, 80: 33, 85: 34, 90: 34.8,
+  95: 35.5, 100: 36.5, 105: 37, 110: 37.7, 115: 38.5, 120: 39, 125: 39.5, 130: 40.2, 135: 40.8, 140: 41.3,
+  150: 42.3, 160: 43.2, 170: 44, 180: 45, 190: 45.8, 200: 46.5
+};
+
+function getBFFromTable(sum: number, gender: 'Laki-laki' | 'Perempuan'): number | null {
+  if (sum < 15) return null;
+  const chart = gender === 'Laki-laki' ? bodyFatChartMen : bodyFatChartWomen;
+  if (chart[sum] !== undefined) return chart[sum];
+  
+  // Find closest lower bound
+  const keys = Object.keys(chart).map(Number).sort((a, b) => a - b);
+  let lowerBound = keys[0];
+  for (const key of keys) {
+    if (key <= sum) {
+      lowerBound = key;
+    } else {
+      break;
+    }
+  }
+  return chart[lowerBound];
+}
+
 export function Assessments() {
-  const [athletes, setAthletes] = useState<Athlete[]>(initialAthletes);
+  const [athletes, setAthletes] = useState<Athlete[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDivision, setSelectedDivision] = useState<string>('All');
   const [assessmentDate, setAssessmentDate] = useState(new Date().toISOString().split('T')[0]);
+  
+  useEffect(() => {
+    const fetchAthletes = async () => {
+      const { data, error } = await supabase
+        .from('athletes')
+        .select(`
+          *,
+          categories:category_id (name),
+          assessment_history:assessments (
+            id,
+            date,
+            weight,
+            bf_in_body,
+            bicep,
+            tricep,
+            subscapula,
+            abdominal,
+            total,
+            bf_caliper,
+            lbm,
+            fm,
+            notes
+          )
+        `);
+      if (error) {
+        console.error('Error fetching athletes:', error);
+      } else {
+        const mappedData = data.map((a: any) => {
+          // Sort assessment history descending by date
+          const sortedHistory = (a.assessment_history || []).sort((a: any, b: any) => {
+            return new Date(b.date).getTime() - new Date(a.date).getTime();
+          });
+          
+          return {
+            ...a,
+            category_name: a.categories?.name || 'Unknown',
+            assessment_history: sortedHistory
+          };
+        });
+        setAthletes(mappedData as Athlete[]);
+      }
+    };
+    fetchAthletes();
+  }, []);
   
   // Local state for batch input
   const [batchData, setBatchData] = useState<Record<string, Partial<AssessmentEntry>>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [focusedAthleteId, setFocusedAthleteId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'input' | 'reference'>('input');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -35,7 +121,7 @@ export function Assessments() {
 
   const filteredAthletes = athletes.filter(a => {
     const matchesSearch = a.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesDivision = selectedDivision === 'All' || a.division === selectedDivision;
+    const matchesDivision = selectedDivision === 'All' || a.category_name === selectedDivision;
     return matchesSearch && matchesDivision;
   });
 
@@ -54,14 +140,22 @@ export function Assessments() {
         const a = Number(updated.abdominal || 0);
         updated.total = b + t + sc + a;
         
-        // Simple BF% calculation (placeholder formula)
-        // BF% = (Total * 0.25) + 2
-        updated.bfCaliper = Number(((updated.total * 0.25) + 2).toFixed(1));
+        // Use the Body Fat Chart logic based on gender
+        const athlete = athletes.find(a => a.id === athleteId);
+        if (athlete && updated.total >= 15) {
+          const bf = getBFFromTable(updated.total, athlete.gender as any);
+          if (bf !== null) {
+            updated.bf_caliper = bf;
+          }
+        } else {
+          // Fallback if total < 15 or athlete not found
+          updated.bf_caliper = Number(((updated.total * 0.25) + 2).toFixed(1));
+        }
       }
 
-      if (field === 'weight' || field === 'bfCaliper') {
+      if (field === 'weight' || field === 'bf_caliper') {
         const weight = Number(updated.weight || 0);
-        const bf = Number(updated.bfCaliper || 0);
+        const bf = Number(updated.bf_caliper || 0);
         if (weight > 0) {
           updated.fm = Number((weight * (bf / 100)).toFixed(2));
           updated.lbm = Number((weight - updated.fm).toFixed(2));
@@ -72,53 +166,60 @@ export function Assessments() {
     });
   };
 
-  const handleSaveAll = () => {
+  const handleSaveAll = async () => {
     setIsSaving(true);
     setSaveStatus('idle');
 
-    // Simulate API call
-    setTimeout(() => {
-      const updatedAthletes = athletes.map(athlete => {
-        const newData = batchData[athlete.id];
-        if (newData && newData.weight) {
-          const newEntry: AssessmentEntry = {
-            date: new Date(assessmentDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' }).toUpperCase(),
-            bfInBody: Number(newData.bfInBody || 0),
-            bicep: Number(newData.bicep || 0),
-            tricep: Number(newData.tricep || 0),
-            subscapula: Number(newData.subscapula || 0),
-            abdominal: Number(newData.abdominal || 0),
-            total: Number(newData.total || 0),
-            bfCaliper: Number(newData.bfCaliper || 0),
-            weight: Number(newData.weight || 0),
-            lbm: Number(newData.lbm || 0),
-            fm: Number(newData.fm || 0),
-            notes: newData.notes || '',
-          };
-          return {
-            ...athlete,
-            weight: newEntry.weight,
-            bodyFatCaliper: newEntry.bfCaliper,
-            bodyFatInBody: newEntry.bfInBody,
-            assessmentHistory: [newEntry, ...athlete.assessmentHistory]
-          };
-        }
-        return athlete;
-      });
-
-      setAthletes(updatedAthletes);
+    try {
+      const entries = Object.entries(batchData).filter(([_, data]) => (data as any).weight);
       
-      // Mutate global mock data so it persists across views
-      updatedAthletes.forEach(updated => {
-        const idx = initialAthletes.findIndex(a => a.id === updated.id);
-        if (idx !== -1) initialAthletes[idx] = updated;
-      });
+      for (const [athleteId, data] of entries) {
+        const newData = data as any;
+        const assessment = {
+          athlete_id: athleteId,
+          date: assessmentDate,
+          bf_in_body: Number(newData.bf_in_body || 0),
+          bicep: Number(newData.bicep || 0),
+          tricep: Number(newData.tricep || 0),
+          subscapula: Number(newData.subscapula || 0),
+          abdominal: Number(newData.abdominal || 0),
+          total: Number(newData.total || 0),
+          bf_caliper: Number(newData.bf_caliper || 0),
+          weight: Number(newData.weight || 0),
+          lbm: Number(newData.lbm || 0),
+          fm: Number(newData.fm || 0),
+          notes: newData.notes || '',
+        };
+
+        // 1. Insert assessment
+        const { error: assessmentError } = await supabase
+          .from('assessments')
+          .insert([assessment]);
+        if (assessmentError) throw assessmentError;
+
+        // 2. Update athlete snapshot
+        const { error: athleteError } = await supabase
+          .from('athletes')
+          .update({
+            weight: assessment.weight,
+            bf_in_body: assessment.bf_in_body
+          })
+          .eq('id', athleteId);
+        if (athleteError) throw athleteError;
+      }
 
       setBatchData({});
-      setIsSaving(false);
       setSaveStatus('success');
-      setTimeout(() => setSaveStatus('idle'), 3000);
-    }, 1000);
+      setTimeout(() => {
+        setSaveStatus('idle');
+        window.location.reload();
+      }, 2000);
+    } catch (error) {
+      console.error('Error saving assessments:', error);
+      setSaveStatus('error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const downloadTemplate = () => {
@@ -196,13 +297,13 @@ export function Assessments() {
           const notes = row['Catatan'] || '';
 
           newBatchData[athleteId] = {
-            bfInBody,
+            bf_in_body: bfInBody,
             bicep: b,
             tricep: t,
             subscapula: sc,
             abdominal: a,
             total,
-            bfCaliper,
+            bf_caliper: bfCaliper,
             weight,
             fm,
             lbm,
@@ -299,12 +400,35 @@ export function Assessments() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex items-center gap-6 mb-6 border-b border-slate-200 px-2">
+        <button
+          onClick={() => setActiveTab('input')}
+          className={cn(
+            "pb-3 text-xs font-black uppercase tracking-widest transition-all border-b-2 relative",
+            activeTab === 'input' ? "border-brand-red text-brand-red" : "border-transparent text-slate-400 hover:text-slate-600"
+          )}
+        >
+          Input Data
+        </button>
+        <button
+          onClick={() => setActiveTab('reference')}
+          className={cn(
+            "pb-3 text-xs font-black uppercase tracking-widest transition-all border-b-2 relative",
+            activeTab === 'reference' ? "border-brand-red text-brand-red" : "border-transparent text-slate-400 hover:text-slate-600"
+          )}
+        >
+          Referensi Body Fat
+        </button>
+      </div>
+
       {/* Main Content Area */}
-      <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-0">
-        {/* Main Table */}
-        <div className="flex-1 bg-white border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-          <div className="overflow-x-auto custom-scrollbar">
-            <table className="w-full text-left border-collapse">
+      {activeTab === 'input' ? (
+        <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-0">
+          {/* Main Table */}
+          <div className="flex-1 bg-white border border-slate-200 shadow-sm overflow-hidden flex flex-col rounded-[2rem]">
+            <div className="overflow-x-auto custom-scrollbar">
+              <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-blue-50 border-b border-blue-100">
                   <th className="px-6 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest sticky left-0 bg-blue-50 z-10">Atlet</th>
@@ -324,7 +448,7 @@ export function Assessments() {
               <tbody className="divide-y divide-slate-50">
                 {filteredAthletes.map((athlete) => {
                   const data = batchData[athlete.id] || {};
-                  const lastAssessment = athlete.assessmentHistory[0];
+                  const lastAssessment = (athlete.assessment_history || [])[0];
                   const isFocused = focusedAthleteId === athlete.id;
 
                   return (
@@ -337,13 +461,13 @@ export function Assessments() {
                               <span className="text-[9px] font-bold text-blue-500">{lastAssessment.date}</span>
                             </div>
                           </td>
-                          <td className="px-2 py-2 text-center text-[10px] font-black text-blue-400">{lastAssessment.bfInBody}%</td>
+                          <td className="px-2 py-2 text-center text-[10px] font-black text-blue-400">{lastAssessment.bf_in_body}%</td>
                           <td className="px-2 py-2 text-center text-[10px] font-black text-blue-400">{lastAssessment.bicep}</td>
                           <td className="px-2 py-2 text-center text-[10px] font-black text-blue-400">{lastAssessment.tricep}</td>
                           <td className="px-2 py-2 text-center text-[10px] font-black text-blue-400">{lastAssessment.subscapula}</td>
                           <td className="px-2 py-2 text-center text-[10px] font-black text-blue-400">{lastAssessment.abdominal}</td>
                           <td className="px-2 py-2 text-center text-[10px] font-black text-blue-400 bg-blue-100/30">{lastAssessment.total}</td>
-                          <td className="px-2 py-2 text-center text-[10px] font-black text-blue-400 bg-blue-100/30">{lastAssessment.bfCaliper}%</td>
+                          <td className="px-2 py-2 text-center text-[10px] font-black text-blue-400 bg-blue-100/30">{lastAssessment.bf_caliper}%</td>
                           <td className="px-2 py-2 text-center text-[10px] font-black text-blue-400">{lastAssessment.weight}</td>
                           <td className="px-2 py-2 text-center text-[10px] font-black text-blue-400 bg-blue-100/30">{lastAssessment.lbm}</td>
                           <td className="px-2 py-2 text-center text-[10px] font-black text-blue-400 bg-blue-100/30">{lastAssessment.fm}</td>
@@ -359,18 +483,19 @@ export function Assessments() {
                       >
                         <td className="px-6 py-4 sticky left-0 bg-white group-hover:bg-slate-50/30 z-10">
                           <div className="flex items-center gap-3">
-                            <img src={athlete.imageUrl} alt="" className="w-8 h-8 rounded-lg object-cover" />
+                            <img src={athlete.image_url} alt="" className="w-8 h-8 rounded-lg object-cover" />
                             <div>
                               <div className="text-sm font-black text-slate-900">{athlete.name}</div>
-                              <div className="text-[9px] font-bold text-slate-400 uppercase">{athlete.division} • {athlete.sector}</div>
+                              <div className="text-[9px] font-bold text-slate-400 uppercase">{athlete.category_name}</div>
                             </div>
                           </div>
                         </td>
                         <td className="px-2 py-4">
                           <input 
                             type="number" 
-                            value={data.bfInBody || ''} 
-                            onChange={(e) => handleInputChange(athlete.id, 'bfInBody', e.target.value)}
+                            step="any"
+                            value={data.bf_in_body || ''} 
+                            onChange={(e) => handleInputChange(athlete.id, 'bf_in_body', e.target.value)}
                             onFocus={() => setFocusedAthleteId(athlete.id)}
                             placeholder="0.0"
                             className="w-16 mx-auto bg-slate-50 border border-slate-100 rounded-lg px-2 py-1.5 text-xs font-bold text-center focus:border-slate-900 outline-none transition-all"
@@ -379,6 +504,7 @@ export function Assessments() {
                         <td className="px-2 py-4">
                           <input 
                             type="number" 
+                            step="any"
                             value={data.bicep || ''} 
                             onChange={(e) => handleInputChange(athlete.id, 'bicep', e.target.value)}
                             onFocus={() => setFocusedAthleteId(athlete.id)}
@@ -388,6 +514,7 @@ export function Assessments() {
                         <td className="px-2 py-4">
                           <input 
                             type="number" 
+                            step="any"
                             value={data.tricep || ''} 
                             onChange={(e) => handleInputChange(athlete.id, 'tricep', e.target.value)}
                             onFocus={() => setFocusedAthleteId(athlete.id)}
@@ -397,6 +524,7 @@ export function Assessments() {
                         <td className="px-2 py-4">
                           <input 
                             type="number" 
+                            step="any"
                             value={data.subscapula || ''} 
                             onChange={(e) => handleInputChange(athlete.id, 'subscapula', e.target.value)}
                             onFocus={() => setFocusedAthleteId(athlete.id)}
@@ -406,6 +534,7 @@ export function Assessments() {
                         <td className="px-2 py-4">
                           <input 
                             type="number" 
+                            step="any"
                             value={data.abdominal || ''} 
                             onChange={(e) => handleInputChange(athlete.id, 'abdominal', e.target.value)}
                             onFocus={() => setFocusedAthleteId(athlete.id)}
@@ -416,11 +545,12 @@ export function Assessments() {
                           <div className="text-xs font-black text-slate-900 text-center">{data.total || '-'}</div>
                         </td>
                         <td className="px-2 py-4 bg-slate-50/30">
-                          <div className="text-xs font-black text-brand-red text-center">{data.bfCaliper ? `${data.bfCaliper}%` : '-'}</div>
+                          <div className="text-xs font-black text-brand-red text-center">{data.bf_caliper ? `${data.bf_caliper}%` : '-'}</div>
                         </td>
                         <td className="px-2 py-4">
                           <input 
                             type="number" 
+                            step="any"
                             value={data.weight || ''} 
                             onChange={(e) => handleInputChange(athlete.id, 'weight', e.target.value)}
                             onFocus={() => setFocusedAthleteId(athlete.id)}
@@ -495,7 +625,7 @@ export function Assessments() {
                         </div>
                         <div>
                           <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Kategori</div>
-                          <div className="text-sm font-black text-slate-900">{focusedAthlete.division}</div>
+                          <div className="text-sm font-black text-slate-900">{focusedAthlete.category_name}</div>
                         </div>
                         <div>
                           <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Nomor WhatsApp</div>
@@ -510,11 +640,11 @@ export function Assessments() {
                       <div className="space-y-5">
                         <div>
                           <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Tempat Lahir</div>
-                          <div className="text-sm font-black text-slate-900">{focusedAthlete.placeOfBirth}</div>
+                          <div className="text-sm font-black text-slate-900">{focusedAthlete.place_of_birth}</div>
                         </div>
                         <div>
                           <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Tanggal Lahir</div>
-                          <div className="text-sm font-black text-slate-900">{focusedAthlete.dateOfBirth}</div>
+                          <div className="text-sm font-black text-slate-900">{focusedAthlete.date_of_birth}</div>
                         </div>
                         <div>
                           <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Umur</div>
@@ -540,11 +670,11 @@ export function Assessments() {
                         </div>
                         <div>
                           <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Gol. Darah</div>
-                          <div className="text-sm font-black text-slate-900">{focusedAthlete.bloodType}</div>
+                          <div className="text-sm font-black text-slate-900">{focusedAthlete.blood_type}</div>
                         </div>
                         <div>
                           <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Tangan</div>
-                          <div className="text-sm font-black text-slate-900">{focusedAthlete.dominantHand}</div>
+                          <div className="text-sm font-black text-slate-900">{focusedAthlete.dominant_hand}</div>
                         </div>
                       </div>
                     </div>
@@ -556,35 +686,35 @@ export function Assessments() {
                         <div className="grid grid-cols-2 gap-6">
                           <div>
                             <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-tight">Lingkar Lengan</div>
-                            <div className="text-sm font-black text-slate-900">{(focusedAthlete.armCircumference || 0).toFixed(1)} cm</div>
+                            <div className="text-sm font-black text-slate-900">{(focusedAthlete.arm_circumference || 0).toFixed(1)} cm</div>
                           </div>
                           <div>
                             <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-tight">Kategori Lengan</div>
-                            <div className="text-sm font-black text-slate-900 uppercase">{focusedAthlete.armCircumferenceCategory}</div>
+                            <div className="text-sm font-black text-slate-900 uppercase">{focusedAthlete.arm_circumference_category}</div>
                           </div>
                         </div>
                         <div>
                           <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Range BB</div>
-                          <div className="text-sm font-black text-slate-900">{focusedAthlete.armCircumferenceRangeBB}</div>
+                          <div className="text-sm font-black text-slate-900">{focusedAthlete.arm_circumference_range_bb}</div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-tight">Body Fat (Kaliper)</div>
-                            <div className="text-sm font-black text-slate-900">{focusedAthlete.bodyFatCaliper} %</div>
+                            <div className="text-sm font-black text-slate-900">{focusedAthlete.bf_caliper} %</div>
                           </div>
                           <div>
                             <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-tight">Body Fat (InBody)</div>
-                            <div className="text-sm font-black text-slate-900">{focusedAthlete.bodyFatInBody} %</div>
+                            <div className="text-sm font-black text-slate-900">{focusedAthlete.bf_in_body} %</div>
                           </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-tight">Target Berat Badan</div>
-                            <div className="text-sm font-black text-slate-900">{focusedAthlete.targetWeight} kg</div>
+                            <div className="text-sm font-black text-slate-900">{focusedAthlete.target_weight} kg</div>
                           </div>
                           <div>
                             <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-tight">Target Body Fat</div>
-                            <div className="text-sm font-black text-slate-900">{focusedAthlete.targetBodyFat} %</div>
+                            <div className="text-sm font-black text-slate-900">{focusedAthlete.target_body_fat} %</div>
                           </div>
                         </div>
                       </div>
@@ -595,7 +725,97 @@ export function Assessments() {
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+        </div>
+      ) : (
+        <div className="flex-1 bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden flex flex-col p-8">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Body Fat Chart Reference</h2>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Tabel konversi Skinfold SUM ke BF%</p>
+            </div>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-4 grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Men Chart */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-black text-blue-600 uppercase tracking-widest bg-blue-50 px-4 py-2 rounded-xl text-center">Body Fat Chart - Man</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-100">
+                      <th className="px-3 py-2 font-black text-slate-900 border border-slate-200">SUM</th>
+                      <th className="px-3 py-2 font-black text-slate-900 border border-slate-200">BF %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(bodyFatChartMen).slice(0, 38).map(([sum, bf]) => (
+                      <tr key={sum} className="even:bg-slate-50">
+                        <td className="px-3 py-1.5 font-bold text-slate-700 border border-slate-200 text-center">{sum}</td>
+                        <td className="px-3 py-1.5 font-medium text-slate-600 border border-slate-200 text-center">{bf}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-100">
+                      <th className="px-3 py-2 font-black text-slate-900 border border-slate-200">SUM</th>
+                      <th className="px-3 py-2 font-black text-slate-900 border border-slate-200">BF %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(bodyFatChartMen).slice(38).map(([sum, bf]) => (
+                      <tr key={sum} className="even:bg-slate-50">
+                        <td className="px-3 py-1.5 font-bold text-slate-700 border border-slate-200 text-center">{sum}</td>
+                        <td className="px-3 py-1.5 font-medium text-slate-600 border border-slate-200 text-center">{bf}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Women Chart */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-black text-rose-600 uppercase tracking-widest bg-rose-50 px-4 py-2 rounded-xl text-center">Body Fat Chart - Women</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-100">
+                      <th className="px-3 py-2 font-black text-slate-900 border border-slate-200">SUM</th>
+                      <th className="px-3 py-2 font-black text-slate-900 border border-slate-200">BF %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(bodyFatChartWomen).slice(0, 38).map(([sum, bf]) => (
+                      <tr key={sum} className="even:bg-slate-50">
+                        <td className="px-3 py-1.5 font-bold text-slate-700 border border-slate-200 text-center">{sum}</td>
+                        <td className="px-3 py-1.5 font-medium text-slate-600 border border-slate-200 text-center">{bf}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-100">
+                      <th className="px-3 py-2 font-black text-slate-900 border border-slate-200">SUM</th>
+                      <th className="px-3 py-2 font-black text-slate-900 border border-slate-200">BF %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(bodyFatChartWomen).slice(38).map(([sum, bf]) => (
+                      <tr key={sum} className="even:bg-slate-50">
+                        <td className="px-3 py-1.5 font-bold text-slate-700 border border-slate-200 text-center">{sum}</td>
+                        <td className="px-3 py-1.5 font-medium text-slate-600 border border-slate-200 text-center">{bf}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Success Notification */}
       <AnimatePresence>

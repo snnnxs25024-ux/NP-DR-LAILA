@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { athletes as initialAthletes, Sector, AssessmentEntry } from '../data/mockData';
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { Athlete, AssessmentEntry } from '../types'; // Keep interface definition
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -16,19 +17,42 @@ import {
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
+import { useCategories } from '../hooks/useCategories';
 
 export function ClinicalRecap() {
-  const [athletesData, setAthletesData] = useState(initialAthletes);
-  const [selectedSector, setSelectedSector] = useState<Sector | 'All'>('Ganda Putri');
+  const [athletesData, setAthletesData] = useState<Athlete[]>([]);
+  const { categories } = useCategories();
+  const [selectedCategory, setSelectedCategory] = useState<string | 'All'>('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success'>('idle');
+  const [isLoading, setIsLoading] = useState(true);
 
-  const sectors: (Sector | 'All')[] = ['All', "Tunggal Putra", "Tunggal Putri", "Ganda Putra", "Ganda Putri", "Ganda Campuran"];
+  useEffect(() => {
+    const fetchAthletes = async () => {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('athletes')
+        .select('*, categories:category_id (name)')
+        .order('name');
+      
+      if (error) {
+        console.error('Error fetching athletes:', error);
+      } else {
+        const formattedData = (data as any[]).map(a => ({
+          ...a,
+          category_name: a.categories?.name
+        }));
+        setAthletesData(formattedData as Athlete[]);
+      }
+      setIsLoading(false);
+    };
+    fetchAthletes();
+  }, []);
 
   const filteredAthletes = athletesData.filter(a => {
-    const matchSector = selectedSector === 'All' || a.sector === selectedSector;
+    const matchCat = selectedCategory === 'All' || a.category_name === selectedCategory;
     const matchSearch = a.name.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchSector && matchSearch;
+    return matchCat && matchSearch;
   });
 
   const getTargetIndicator = (current: number, target: number) => {
@@ -41,16 +65,16 @@ export function ClinicalRecap() {
     const numValue = parseFloat(value) || 0;
     setAthletesData(prev => prev.map(athlete => {
       if (athlete.id === athleteId) {
-        const history = [...athlete.assessmentHistory];
+        const history = [...(athlete.assessment_history || [])];
         if (history.length > 0) {
           history[0] = { ...history[0], [field]: numValue };
         } else {
           // Create first entry if none exists
           const newEntry: AssessmentEntry = {
             date: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' }).toUpperCase(),
-            weight: field === 'weight' ? numValue : athlete.weight,
-            bfCaliper: field === 'bfCaliper' ? numValue : athlete.bodyFatCaliper,
-            bfInBody: athlete.bodyFatInBody,
+            weight: field === 'weight' ? numValue : (athlete.weight || 0),
+            bf_caliper: field === 'bf_caliper' ? numValue : (athlete.bf_in_body || 0),
+            bf_in_body: athlete.bf_in_body || 0,
             bicep: 0,
             tricep: 0,
             subscapula: 0,
@@ -61,7 +85,7 @@ export function ClinicalRecap() {
           };
           history.push(newEntry);
         }
-        return { ...athlete, assessmentHistory: history };
+        return { ...athlete, assessment_history: history };
       }
       return athlete;
     }));
@@ -70,12 +94,13 @@ export function ClinicalRecap() {
   const handleAddAssessment = (athleteId: string) => {
     setAthletesData(prev => prev.map(athlete => {
       if (athlete.id === athleteId) {
-        const latest = athlete.assessmentHistory[0] || athlete;
+        const history = athlete.assessment_history || [];
+        const latest = history[0] || athlete;
         const newEntry: AssessmentEntry = {
           date: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' }).toUpperCase(),
-          weight: (latest as any).weight || athlete.weight,
-          bfCaliper: (latest as any).bfCaliper || athlete.bodyFatCaliper,
-          bfInBody: (latest as any).bfInBody || athlete.bodyFatInBody,
+          weight: (latest as any).weight || athlete.weight || 0,
+          bf_caliper: (latest as any).bf_caliper || (latest as any).bfCaliper || 0,
+          bf_in_body: (latest as any).bf_in_body || (latest as any).bfInBody || 0,
           bicep: (latest as any).bicep || 0,
           tricep: (latest as any).tricep || 0,
           subscapula: (latest as any).subscapula || 0,
@@ -84,7 +109,7 @@ export function ClinicalRecap() {
           lbm: (latest as any).lbm || 0,
           fm: (latest as any).fm || 0
         };
-        return { ...athlete, assessmentHistory: [newEntry, ...athlete.assessmentHistory] };
+        return { ...athlete, assessment_history: [newEntry, ...history] };
       }
       return athlete;
     }));
@@ -96,8 +121,8 @@ export function ClinicalRecap() {
 
   const handleDeleteLatest = (athleteId: string) => {
     setAthletesData(prev => prev.map(athlete => {
-      if (athlete.id === athleteId && athlete.assessmentHistory.length > 0) {
-        return { ...athlete, assessmentHistory: athlete.assessmentHistory.slice(1) };
+      if (athlete.id === athleteId && (athlete.assessment_history?.length || 0) > 0) {
+        return { ...athlete, assessment_history: athlete.assessment_history?.slice(1) };
       }
       return athlete;
     }));
@@ -173,11 +198,12 @@ export function ClinicalRecap() {
         <div className="relative">
           <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <select 
-            value={selectedSector}
-            onChange={(e) => setSelectedSector(e.target.value as any)}
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
             className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-4 py-2.5 text-sm font-bold focus:border-slate-900 outline-none transition-all appearance-none"
           >
-            {sectors.map(s => <option key={s} value={s}>{s}</option>)}
+            <option value="All">Semua Kategori</option>
+            {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
           </select>
         </div>
       </div>
@@ -203,12 +229,12 @@ export function ClinicalRecap() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredAthletes.map((athlete, index) => {
-                const latestAssessment = athlete.assessmentHistory[0];
-                const currentWeight = latestAssessment?.weight || athlete.weight;
-                const currentBF = latestAssessment?.bfCaliper || athlete.bodyFatCaliper;
+                const latestAssessment = athlete.assessment_history?.[0];
+                const currentWeight = latestAssessment?.weight || athlete.weight || 0;
+                const currentBF = latestAssessment?.bf_caliper || athlete.bf_in_body || 0;
                 
-                const isWeightAchieved = currentWeight <= athlete.targetWeight;
-                const isBFAchieved = currentBF <= athlete.targetBodyFat;
+                const isWeightAchieved = currentWeight <= athlete.target_weight;
+                const isBFAchieved = currentBF <= athlete.target_body_fat;
                 const conclusion = getConclusion(isWeightAchieved, isBFAchieved);
 
                 return (
@@ -230,7 +256,7 @@ export function ClinicalRecap() {
                       />
                     </td>
                     <td className="p-4 border border-slate-100 text-center font-bold text-blue-600 bg-blue-50/5">
-                      {athlete.targetWeight}
+                      {athlete.target_weight}
                     </td>
                     <td className="p-4 border border-slate-100 text-center bg-blue-50/10">
                       <span className={cn(
@@ -244,12 +270,12 @@ export function ClinicalRecap() {
                       <input 
                         type="number"
                         value={currentBF || ''}
-                        onChange={(e) => handleUpdateAssessment(athlete.id, 'bfCaliper', e.target.value)}
+                        onChange={(e) => handleUpdateAssessment(athlete.id, 'bf_caliper', e.target.value)}
                         className="w-10 bg-transparent border-none text-center font-black text-brand-red focus:ring-0 outline-none"
                       />
                     </td>
                     <td className="p-4 border border-slate-100 text-center font-bold text-slate-900 bg-rose-50/5">
-                      {athlete.targetBodyFat}%
+                      {athlete.target_body_fat}%
                     </td>
                     <td className="p-4 border border-slate-100 text-center bg-rose-50/10">
                       <span className={cn(
@@ -275,11 +301,11 @@ export function ClinicalRecap() {
                         </button>
                         <button 
                           onClick={() => handleDeleteLatest(athlete.id)}
-                          disabled={athlete.assessmentHistory.length === 0}
+                          disabled={(athlete.assessment_history?.length || 0) === 0}
                           title="Hapus Terakhir"
                           className={cn(
                             "p-1.5 rounded-lg transition-all",
-                            athlete.assessmentHistory.length === 0 
+                            (athlete.assessment_history?.length || 0) === 0 
                               ? "bg-slate-50 text-slate-200 cursor-not-allowed" 
                               : "bg-rose-50 text-brand-red hover:bg-brand-red hover:text-white"
                           )}

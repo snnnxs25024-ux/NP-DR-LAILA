@@ -1,16 +1,53 @@
-import { useState, useEffect, FormEvent } from 'react';
-import { Filter, Search, ChevronRight, Activity, Droplets, Scale, UserPlus, Grid, List, X, Plus, Trash2, Edit2, Check, Save, Ruler } from 'lucide-react';
-import { athletes as initialAthletes, Athlete, Division, Sector, AssessmentEntry } from '../data/mockData';
+import { useState, useEffect, FormEvent, useRef, ChangeEvent, Dispatch, SetStateAction } from 'react';
+import { Filter, Search, ChevronRight, Activity, Droplets, Scale, UserPlus, Grid, List, X, Plus, Trash2, Edit2, Check, Save, Ruler, Download, Upload, FileDown, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Athlete, Category, AssessmentEntry, NoteEntry, InjuryEntry } from '../types';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
+import { differenceInYears, formatDistanceToNow } from 'date-fns';
+import { id } from 'date-fns/locale';
+import { supabase } from '../lib/supabase';
+import { useCategories } from '../hooks/useCategories';
+import { uploadAthleteImage } from '../lib/storage';
 
 interface AthleteDirectoryProps {
   onSelectAthlete: (id: string) => void;
 }
 
 export function AthleteDirectory({ onSelectAthlete }: AthleteDirectoryProps) {
-  const [athletesList, setAthletesList] = useState<Athlete[]>(initialAthletes);
-  const [categories, setCategories] = useState<string[]>(['U-13', 'U-15', 'U-17', 'U-19', 'Senior', "Men's Singles", "Women's Singles", "Men's Doubles", "Women's Doubles", "Mixed Doubles"]);
+  const [athletesList, setAthletesList] = useState<Athlete[]>([]);
+  const { categories, setCategories, isLoading: isCategoriesLoading, refreshCategories, deleteCategory } = useCategories();
+  
+  const fetchAthletes = async () => {
+    const { data, error } = await supabase
+      .from('athletes')
+      .select(`
+        *,
+        categories:category_id (name),
+        assessment_history:assessments(*)
+      `)
+      .order('name');
+
+    if (error) {
+      console.error('Error fetching athletes:', error);
+    } else {
+      const mappedData = data.map((a: any) => ({
+        ...a,
+        category_name: (Array.isArray(a.categories) 
+          ? a.categories[0]?.name 
+          : a.categories?.name) || 'Unknown',
+        assessment_history: (a.assessment_history || []).sort((x: any, y: any) => 
+          new Date(y.date).getTime() - new Date(x.date).getTime()
+        )
+      }));
+      setAthletesList(mappedData as Athlete[]);
+    }
+  };
+
+  useEffect(() => {
+    fetchAthletes();
+  }, []);
   
   const [selectedCategory, setSelectedCategory] = useState<string | 'All'>('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -18,6 +55,38 @@ export function AthleteDirectory({ onSelectAthlete }: AthleteDirectoryProps) {
   
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type: 'danger' | 'warning';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    type: 'warning'
+  });
+
+  const [notification, setNotification] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+  }>({
+    show: false,
+    title: '',
+    message: ''
+  });
+
+  const showNotification = (title: string, message: string) => {
+    setNotification({ show: true, title, message });
+    setTimeout(() => {
+      setNotification({ show: false, title: '', message: '' });
+    }, 3000);
+  };
 
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
@@ -34,15 +103,381 @@ export function AthleteDirectory({ onSelectAthlete }: AthleteDirectoryProps) {
 
   // Filtered Athletes
   const filteredAthletes = athletesList.filter(a => {
-    const matchCat = selectedCategory === 'All' || a.division === selectedCategory || a.sector === selectedCategory;
+    const matchCat = selectedCategory === 'All' || a.category_name === selectedCategory;
     const matchSearch = a.name.toLowerCase().includes(searchQuery.toLowerCase());
     return matchCat && matchSearch;
   });
 
-  const handleAddAthlete = (newAthlete: Athlete) => {
-    setAthletesList([...athletesList, newAthlete]);
-    initialAthletes.push(newAthlete); // Mutate global mock data
-    setIsAddModalOpen(false);
+  const handleAddAthlete = async (newAthlete: Athlete, initialAssessment: AssessmentEntry) => {
+    try {
+      // 1. Insert athlete
+      const { data: athleteData, error: athleteError } = await supabase
+        .from('athletes')
+        .insert([{
+          name: newAthlete.name,
+          category_id: newAthlete.category_id,
+          status: newAthlete.status,
+          whatsapp: newAthlete.whatsapp,
+          place_of_birth: newAthlete.place_of_birth,
+          date_of_birth: newAthlete.date_of_birth,
+          age: newAthlete.age,
+          gender: newAthlete.gender,
+          height: newAthlete.height,
+          blood_type: newAthlete.blood_type,
+          dominant_hand: newAthlete.dominant_hand,
+          arm_circumference: newAthlete.arm_circumference,
+          arm_circumference_category: newAthlete.arm_circumference_category,
+          arm_circumference_range_bb: newAthlete.arm_circumference_range_bb,
+          target_weight: newAthlete.target_weight,
+          target_body_fat: newAthlete.target_body_fat,
+          image_url: newAthlete.image_url,
+          weight: initialAssessment.weight, // Snapshot
+          bf_in_body: initialAssessment.bf_in_body, // Snapshot
+          bf_caliper: initialAssessment.bf_caliper // Snapshot
+        }])
+        .select();
+
+      if (athleteError) throw athleteError;
+
+      const createdAthlete = athleteData[0];
+
+      // 2. Insert initial assessment
+      const { error: assessmentError } = await supabase
+        .from('assessments')
+        .insert([{
+          athlete_id: createdAthlete.id,
+          date: initialAssessment.date,
+          weight: initialAssessment.weight,
+          bf_caliper: initialAssessment.bf_caliper,
+          bf_in_body: initialAssessment.bf_in_body,
+          bicep: initialAssessment.bicep,
+          tricep: initialAssessment.tricep,
+          subscapula: initialAssessment.subscapula,
+          abdominal: initialAssessment.abdominal,
+          total: initialAssessment.total,
+          lbm: initialAssessment.lbm,
+          fm: initialAssessment.fm
+        }]);
+
+      if (assessmentError) throw assessmentError;
+
+      showNotification('Berhasil', 'Atlet berhasil ditambahkan!');
+      fetchAthletes();
+      setIsAddModalOpen(false);
+    } catch (error) {
+      console.error('Error adding athlete:', error);
+      showNotification('Gagal', 'Gagal menambahkan atlet. Silakan cek koneksi atau database.');
+    }
+  };
+
+  const handleDeleteAthlete = (id: string, name: string, e: any) => {
+    e.stopPropagation();
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Hapus Atlet',
+      message: `Apakah Anda yakin ingin menghapus atlet "${name}" beserta semua data riwayatnya? Tindakan ini tidak dapat dibatalkan.`,
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase.from('athletes').delete().eq('id', id);
+          if (error) throw error;
+          showNotification('Berhasil', 'Atlet berhasil dihapus.');
+          fetchAthletes();
+        } catch (error) {
+          console.error('Error deleting athlete:', error);
+          showNotification('Gagal', 'Gagal menghapus atlet.');
+        }
+      }
+    });
+  };
+
+  const handleDownloadTemplate = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Template Atlet');
+
+    worksheet.columns = [
+      { header: 'Nama', key: 'name', width: 20 },
+      { header: 'Kategori', key: 'category', width: 15 },
+      { header: 'Status', key: 'status', width: 15 },
+      { header: 'WhatsApp', key: 'whatsapp', width: 15 },
+      { header: 'TempatLahir', key: 'placeOfBirth', width: 15 },
+      { header: 'TanggalLahir', key: 'dateOfBirth', width: 15 },
+      { header: 'Umur', key: 'age', width: 10 },
+      { header: 'TinggiBadan', key: 'height', width: 15 },
+      { header: 'BeratBadan', key: 'weight', width: 15 },
+      { header: 'GolonganDarah', key: 'bloodType', width: 15 },
+      { header: 'TanganDominan', key: 'dominantHand', width: 15 },
+      { header: 'LingkarLengan', key: 'armCircumference', width: 15 },
+      { header: 'KategoriLengan', key: 'armCircumferenceCategory', width: 20 },
+      { header: 'RangeBBIdeal', key: 'armCircumferenceRangeBB', width: 15 },
+      { header: 'TargetBB', key: 'targetWeight', width: 15 },
+      { header: 'TargetBF', key: 'targetBodyFat', width: 15 },
+      { header: 'BFInBody', key: 'bfInBody', width: 15 },
+      { header: 'Bisep', key: 'bicep', width: 10 },
+      { header: 'Trisep', key: 'tricep', width: 10 },
+      { header: 'Subskapula', key: 'subscapula', width: 15 },
+      { header: 'Abdominal', key: 'abdominal', width: 15 },
+    ];
+
+    worksheet.addRow({
+      name: 'Contoh Atlet',
+      category: categories[0] ? categories[0].name : 'U-15',
+      status: 'AKTIF',
+      whatsapp: '+628123456789',
+      placeOfBirth: 'Jakarta',
+      dateOfBirth: '2009-08-12', // Gunakan format standar agar tidak bentrok
+      age: '', // Kosongkan agar di auto-calculate
+      height: 168,
+      weight: 65,
+      bloodType: 'O',
+      dominantHand: 'Kanan',
+      armCircumference: 32,
+      armCircumferenceCategory: 'BESAR',
+      armCircumferenceRangeBB: '60-70',
+      targetWeight: 63,
+      targetBodyFat: 12,
+      bfInBody: 15,
+      bicep: 5,
+      tricep: 8,
+      subscapula: 10,
+      abdominal: 12
+    });
+
+    const validCategories = categories.filter(c => c.name !== 'All').map(c => c.name);
+    const categoryList = validCategories.join(',');
+    
+    for (let i = 2; i <= 1000; i++) {
+      worksheet.getCell(`B${i}`).dataValidation = {
+        type: 'list',
+        allowBlank: true,
+        formulae: [`"${categoryList}"`]
+      };
+      worksheet.getCell(`C${i}`).dataValidation = {
+        type: 'list',
+        allowBlank: true,
+        formulae: ['"AKTIF,TIDAK AKTIF"']
+      };
+      
+      // Removed automatic formula from UI template definition so dates handle correctly during read
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), 'template_atlet.xlsx');
+  };
+
+  const handleExport = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Data Atlet');
+
+    worksheet.columns = [
+      { header: 'Nama', key: 'name', width: 20 },
+      { header: 'Kategori', key: 'category', width: 15 },
+      { header: 'Status', key: 'status', width: 15 },
+      { header: 'WhatsApp', key: 'whatsapp', width: 15 },
+      { header: 'TempatLahir', key: 'placeOfBirth', width: 15 },
+      { header: 'TanggalLahir', key: 'dateOfBirth', width: 15 },
+      { header: 'Umur', key: 'age', width: 10 },
+      { header: 'TinggiBadan', key: 'height', width: 15 },
+      { header: 'BeratBadan', key: 'weight', width: 15 },
+      { header: 'GolonganDarah', key: 'bloodType', width: 15 },
+      { header: 'TanganDominan', key: 'dominantHand', width: 15 },
+      { header: 'LingkarLengan', key: 'armCircumference', width: 15 },
+      { header: 'KategoriLengan', key: 'armCircumferenceCategory', width: 20 },
+      { header: 'RangeBBIdeal', key: 'armCircumferenceRangeBB', width: 15 },
+      { header: 'TargetBB', key: 'targetWeight', width: 15 },
+      { header: 'TargetBF', key: 'targetBodyFat', width: 15 },
+      { header: 'BFInBody', key: 'bfInBody', width: 15 },
+      { header: 'Bisep', key: 'bicep', width: 10 },
+      { header: 'Trisep', key: 'tricep', width: 10 },
+      { header: 'Subskapula', key: 'subscapula', width: 15 },
+      { header: 'Abdominal', key: 'abdominal', width: 15 },
+    ];
+
+    athletesList.forEach(a => {
+      worksheet.addRow({
+        name: a.name,
+        category: a.category_name,
+        status: a.status,
+        whatsapp: a.whatsapp || '',
+        placeOfBirth: a.place_of_birth || '',
+        dateOfBirth: a.date_of_birth || '',
+        age: a.age || 0,
+        height: a.height || 0,
+        weight: a.weight || 0,
+        bloodType: a.blood_type || '',
+        dominantHand: a.dominant_hand || '',
+        armCircumference: a.arm_circumference || 0,
+        armCircumferenceCategory: a.arm_circumference_category || '',
+        armCircumferenceRangeBB: a.arm_circumference_range_bb || '',
+        targetWeight: a.target_weight || 0,
+        targetBodyFat: a.target_body_fat || 0,
+        bfInBody: a.bf_in_body || 0,
+        bicep: a.assessment_history?.[0]?.bicep || 0,
+        tricep: a.assessment_history?.[0]?.tricep || 0,
+        subscapula: a.assessment_history?.[0]?.subscapula || 0,
+        abdominal: a.assessment_history?.[0]?.abdominal || 0
+      });
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), 'data_atlet.xlsx');
+  };
+
+  const handleImport = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(await file.arrayBuffer());
+      const worksheet = workbook.worksheets[0];
+      
+      const athletesToInsert: any[] = [];
+      const assessmentsToInsert: any[] = [];
+      
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return; // Skip header
+        
+        const values = row.values as any[];
+        const getVal = (idx: number) => {
+          const v = values[idx];
+          if (v && typeof v === 'object' && v.result !== undefined) return v.result;
+          if (v && typeof v === 'object' && v.text !== undefined) return String(v.text);
+          if (v instanceof Date) return v.toISOString().split('T')[0];
+          return v;
+        };
+
+        const name = getVal(1) || 'Unknown';
+        const categoryName = String(getVal(2) || '').trim();
+        // Fallback robust mapping: match substring loosely if exact match fails
+        let category = categories.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
+        if (!category) {
+          category = categories.find(c => categoryName.toLowerCase().includes(c.name.toLowerCase()) || c.name.toLowerCase().includes(categoryName.toLowerCase())) || categories.find(c => c.name !== 'All');
+          
+          if (!category) {
+            console.warn(`Category ${categoryName} not found and no fallback available.`);
+            return; // Skip if we really can't find a category
+          }
+        }
+        
+        const status = getVal(3) || 'AKTIF';
+        const whatsapp = getVal(4) || '+62';
+        const place_of_birth = getVal(5) || '';
+        let date_of_birth = getVal(6) || '';
+        
+        // Auto-calculate Age if date is provided
+        let age = parseInt(getVal(7)) || 0;
+        
+        if (date_of_birth && typeof date_of_birth === 'string' || date_of_birth instanceof Date) {
+          try {
+             // Handle standard YYYY-MM-DD or excel date objects
+             const dobDate = new Date(date_of_birth);
+             if (!isNaN(dobDate.getTime())) {
+                const diffMs = Date.now() - dobDate.getTime();
+                const ageDate = new Date(diffMs);
+                age = Math.abs(ageDate.getUTCFullYear() - 1970);
+                
+                // standardizing date format to store
+                date_of_birth = dobDate.toISOString().split('T')[0];
+             }
+          } catch(e) {
+             console.error("error parsing age", e);
+          }
+        }
+
+        const height = parseFloat(getVal(8)) || 0;
+        const weight = parseFloat(getVal(9)) || 0;
+        const blood_type = getVal(10) || '';
+        const dominant_hand = getVal(11) || 'Kanan';
+        const arm_circumference = parseFloat(getVal(12)) || 0;
+        const arm_circumference_category = getVal(13) || '';
+        const arm_circumference_range_bb = getVal(14) || '';
+        const target_weight = parseFloat(getVal(15)) || 0;
+        const target_body_fat = parseFloat(getVal(16)) || 0;
+        const bf_in_body = parseFloat(getVal(17)) || 0;
+        const bicep = parseFloat(getVal(18)) || 0;
+        const tricep = parseFloat(getVal(19)) || 0;
+        const subscapula = parseFloat(getVal(20)) || 0;
+        const abdominal = parseFloat(getVal(21)) || 0;
+
+        const total = bicep + tricep + subscapula + abdominal;
+        const bf_caliper = Number((total * 0.4).toFixed(1));
+        const fm = Number((weight * (bf_caliper / 100)).toFixed(2));
+        const lbm = Number((weight - fm).toFixed(2));
+
+        // Remove tempId math.random generation which causes Postgres UUID casting errors
+        // Instead, just don't inject "id" to athletesToInsert, Supabase will generate a valid UUID.
+
+        athletesToInsert.push({
+          // Notice: 'id' property is removed
+          name: String(name),
+          category_id: category.id,
+          status: String(status) as any,
+          weight,
+          target_weight,
+          image_url: `https://picsum.photos/seed/${name}/200/200`,
+          place_of_birth: String(place_of_birth),
+          date_of_birth: String(date_of_birth),
+          age,
+          gender: 'L',
+          height,
+          arm_circumference,
+          arm_circumference_category: String(arm_circumference_category),
+          arm_circumference_range_bb: String(arm_circumference_range_bb),
+          target_body_fat,
+          whatsapp: String(whatsapp),
+          blood_type: String(blood_type),
+          dominant_hand: String(dominant_hand) as any,
+          bf_in_body
+        });
+
+        assessmentsToInsert.push({
+          // temporary null will be replaced with realId during loop
+          athlete_id: null,
+          date: new Date().toISOString().split('T')[0],
+          bf_in_body,
+          bicep,
+          tricep,
+          subscapula,
+          abdominal,
+          total,
+          bf_caliper,
+          weight,
+          lbm,
+          fm
+        });
+      });
+
+      // Batch insert into Supabase
+      for (let i = 0; i < athletesToInsert.length; i++) {
+        const { data: athleteData, error: athleteError } = await supabase
+          .from('athletes')
+          .insert([athletesToInsert[i]])
+          .select();
+        
+        if (athleteError) throw athleteError;
+
+        const realId = athleteData[0].id;
+        const assessment = assessmentsToInsert[i];
+        assessment.athlete_id = realId;
+
+        const { error: assessmentError } = await supabase
+          .from('assessments')
+          .insert([assessment]);
+        
+        if (assessmentError) throw assessmentError;
+      }
+
+      showNotification('Berhasil', 'Data atlet berhasil diimpor!');
+      fetchAthletes();
+    } catch (error) {
+      console.error('Error importing athletes:', error);
+      showNotification('Gagal', 'Gagal mengimpor data atlet.');
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   return (
@@ -66,6 +501,29 @@ export function AthleteDirectory({ onSelectAthlete }: AthleteDirectoryProps) {
           <div className="flex items-center gap-3">
             <div className="flex bg-slate-50 border border-slate-200 rounded-xl p-1 flex-1 md:flex-none justify-center">
               <button 
+                onClick={handleDownloadTemplate}
+                title="Download Template CSV"
+                className="p-2 rounded-lg transition-all text-slate-400 hover:text-slate-600 flex-1 md:flex-none flex justify-center"
+              >
+                <FileDown className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                title="Import CSV"
+                className="p-2 rounded-lg transition-all text-slate-400 hover:text-slate-600 flex-1 md:flex-none flex justify-center"
+              >
+                <Upload className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={handleExport}
+                title="Export CSV"
+                className="p-2 rounded-lg transition-all text-slate-400 hover:text-slate-600 flex-1 md:flex-none flex justify-center"
+              >
+                <Download className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex bg-slate-50 border border-slate-200 rounded-xl p-1 flex-1 md:flex-none justify-center">
+              <button 
                 onClick={() => setViewMode('grid')}
                 className={cn("p-2 rounded-lg transition-all flex-1 md:flex-none flex justify-center", viewMode === 'grid' ? "bg-white text-slate-900 shadow-sm border border-slate-200" : "text-slate-400 hover:text-slate-600")}
               >
@@ -86,6 +544,13 @@ export function AthleteDirectory({ onSelectAthlete }: AthleteDirectoryProps) {
               <span className="hidden md:inline">Tambah Atlet</span>
               <span className="md:hidden">Tambah</span>
             </button>
+            <input 
+              type="file" 
+              accept=".xlsx" 
+              ref={fileInputRef} 
+              onChange={handleImport} 
+              className="hidden" 
+            />
           </div>
         </div>
       </div>
@@ -110,7 +575,7 @@ export function AthleteDirectory({ onSelectAthlete }: AthleteDirectoryProps) {
               <span className="text-[10px] font-bold text-brand-red uppercase tracking-widest">{selectedCategory === 'All' ? 'Semua' : selectedCategory}</span>
             </div>
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 -mx-2 px-2">
-              {['All', ...categories].map(cat => (
+              {['All', ...categories.map(c => c.name)].map(cat => (
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
@@ -143,6 +608,7 @@ export function AthleteDirectory({ onSelectAthlete }: AthleteDirectoryProps) {
                 athlete={athlete} 
                 viewMode={viewMode} 
                 onClick={() => onSelectAthlete(athlete.id)} 
+                onDelete={(e) => handleDeleteAthlete(athlete.id, athlete.name, e)}
               />
             ))}
           </motion.div>
@@ -161,26 +627,132 @@ export function AthleteDirectory({ onSelectAthlete }: AthleteDirectoryProps) {
         onClose={() => setIsManageModalOpen(false)}
         categories={categories}
         setCategories={setCategories}
+        refreshCategories={refreshCategories}
+        deleteCategory={deleteCategory}
+        fetchAthletes={fetchAthletes}
+        setConfirmConfig={setConfirmConfig}
+        setNotification={setNotification}
       />
+
+      {/* Confirmation Modal */}
+      <AnimatePresence>
+        {confirmConfig.isOpen && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200"
+            >
+              <div className="p-6 text-center">
+                <div className={cn(
+                  "w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg",
+                  confirmConfig.type === 'danger' ? "bg-red-50 text-red-600 shadow-red-100" : "bg-orange-50 text-orange-600 shadow-orange-100"
+                )}>
+                  <AlertCircle className="w-8 h-8" />
+                </div>
+                <h3 className="text-lg font-black text-slate-900 tracking-tight mb-2">{confirmConfig.title}</h3>
+                <p className="text-sm font-bold text-slate-500 leading-relaxed mb-6">
+                  {confirmConfig.message}
+                </p>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+                    className="flex-1 px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest transition-all"
+                  >
+                    Batal
+                  </button>
+                  <button 
+                    onClick={() => {
+                      confirmConfig.onConfirm();
+                      setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+                    }}
+                    className={cn(
+                      "flex-1 px-4 py-3 rounded-xl text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-lg",
+                      confirmConfig.type === 'danger' ? "bg-red-600 hover:bg-red-700 shadow-red-200" : "bg-brand-red hover:bg-brand-red-hover shadow-brand-red/20"
+                    )}
+                  >
+                    Ya, Lanjutkan
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Success Notification */}
+      <AnimatePresence>
+        {notification.show && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-8 right-8 bg-emerald-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 z-[200]"
+          >
+            <CheckCircle2 className="w-6 h-6" />
+            <div>
+              <div className="text-sm font-black uppercase tracking-tight">{notification.title}</div>
+              <div className="text-[10px] font-bold opacity-80 uppercase tracking-widest">{notification.message}</div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-// --- Sub-components ---
+// Helper for BF calculation (copied from Assessments.tsx or moved to utils)
+const bodyFatChartMen: Record<number, number> = {
+  15: 4.8, 16: 5.44, 17: 6.08, 18: 6.72, 19: 7.36, 20: 8, 21: 8.5, 22: 9, 23: 9.5, 24: 10,
+  25: 10.5, 26: 11, 27: 11.5, 28: 12, 29: 12.5, 30: 13, 31: 13.34, 32: 13.68, 33: 14.02, 34: 14.36,
+  35: 14.7, 36: 15.06, 37: 15.42, 38: 15.78, 39: 16.14, 40: 16.5, 41: 16.74, 42: 16.98, 43: 17.22, 44: 17.46,
+  45: 17.7, 46: 17.96, 47: 18.22, 48: 18.48, 49: 18.74, 50: 19, 51: 19.2, 52: 19.4, 53: 19.6, 54: 19.8,
+  55: 20, 56: 20.24, 57: 20.48, 58: 20.72, 59: 20.96, 60: 21.2, 61: 21.4, 62: 21.6, 63: 21.8, 64: 22,
+  65: 22.2, 66: 22.36, 67: 22.52, 68: 22.68, 69: 22.84, 70: 23, 75: 24, 80: 24.8, 85: 25.5, 90: 26.3,
+  95: 27, 100: 27.5, 105: 28.2, 110: 28.8, 115: 29.5, 120: 30, 125: 30.5, 130: 31, 135: 31.5, 140: 32,
+  150: 33, 160: 33.5, 170: 34.5, 180: 35.2, 190: 36, 200: 36.5
+};
+
+const bodyFatChartWomen: Record<number, number> = {
+  15: 10.5, 16: 11.2, 17: 11.9, 18: 12.6, 19: 13.3, 20: 14, 21: 14.56, 22: 15.12, 23: 15.68, 24: 16.24,
+  25: 16.8, 26: 17.5, 27: 18, 28: 18.5, 29: 19, 30: 19.5, 31: 19.9, 32: 20.3, 33: 20.7, 34: 21.1,
+  35: 21.5, 36: 21.9, 37: 22.3, 38: 22.7, 39: 23.1, 40: 23.5, 41: 23.8, 42: 24.1, 43: 24.4, 44: 24.7,
+  45: 25, 46: 25.3, 47: 25.6, 48: 25.9, 49: 26.2, 50: 26.5, 51: 26.76, 52: 27.02, 53: 27.28, 54: 27.54,
+  55: 27.8, 56: 28.04, 57: 28.3, 58: 28.56, 59: 28.82, 60: 29, 61: 29.24, 62: 29.48, 63: 29.72, 64: 29.96,
+  65: 30.2, 66: 30.4, 67: 30.6, 68: 30.8, 69: 31, 70: 31.2, 75: 32.2, 80: 33, 85: 34, 90: 34.8,
+  95: 35.5, 100: 36.5, 105: 37, 110: 37.7, 115: 38.5, 120: 39, 125: 39.5, 130: 40.2, 135: 40.8, 140: 41.3,
+  150: 42.3, 160: 43.2, 170: 44, 180: 45, 190: 45.8, 200: 46.5
+};
+
+function getBFFromTable(sum: number, gender: 'Laki-laki' | 'Perempuan'): number | null {
+  if (sum < 15) return null;
+  const chart = gender === 'Laki-laki' ? bodyFatChartMen : bodyFatChartWomen;
+  if (chart[sum] !== undefined) return chart[sum];
+  const keys = Object.keys(chart).map(Number).sort((a, b) => a - b);
+  let lowerBound = keys[0];
+  for (const key of keys) {
+    if (key <= sum) lowerBound = key;
+    else break;
+  }
+  return chart[lowerBound];
+}
 
 interface AthleteCardProps {
   athlete: Athlete;
   viewMode: 'grid' | 'list';
   onClick: () => void;
+  onDelete: (e: any) => void;
   key?: string | number;
 }
 
-function AthleteCard({ athlete, viewMode, onClick }: AthleteCardProps) {
-  const lastAssessment = athlete.assessmentHistory[0];
+function AthleteCard({ athlete, viewMode, onClick, onDelete }: AthleteCardProps) {
+  const lastAssessment = athlete.assessment_history?.[0];
   const lastUpdateDate = lastAssessment?.date || 'N/A';
   
   // Calculate progress percentages (closeness to target)
   const calculateCloseness = (current: number, target: number) => {
+    if (!target || target === 0) return 100;
     if (current === target) return 100;
     const diff = Math.abs(current - target);
     // Simple heuristic: if diff is 0, 100%. If diff is 10% of target, it's significantly off.
@@ -189,8 +761,9 @@ function AthleteCard({ athlete, viewMode, onClick }: AthleteCardProps) {
     return Math.round(percentage);
   };
 
-  const weightProgress = calculateCloseness(athlete.weight, athlete.targetWeight);
-  const bfProgress = calculateCloseness(athlete.bodyFatCaliper, athlete.targetBodyFat);
+  const weightProgress = calculateCloseness(athlete.weight || 0, athlete.target_weight);
+  const currentBF = (athlete.bf_caliper && athlete.bf_caliper > 0) ? athlete.bf_caliper : (athlete.bf_in_body || 0);
+  const bfProgress = calculateCloseness(currentBF, athlete.target_body_fat);
   const totalProgress = Math.round((weightProgress + bfProgress) / 2);
 
   if (viewMode === 'list') {
@@ -204,10 +777,10 @@ function AthleteCard({ athlete, viewMode, onClick }: AthleteCardProps) {
       >
         <div className="flex items-center gap-4">
           <div className="relative">
-            <img src={athlete.imageUrl} alt={athlete.name} className="w-12 h-12 rounded-xl object-cover border border-slate-100" />
+            <img src={athlete.image_url} alt={athlete.name} className="w-12 h-12 rounded-xl object-cover border border-slate-100" />
             <div className={cn(
               "absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-white",
-              athlete.status === 'Fit' ? "bg-green-500" : athlete.status === 'Cedera' ? "bg-red-500" : "bg-yellow-500"
+              athlete.status === 'AKTIF' ? "bg-green-500" : "bg-slate-400"
             )}></div>
           </div>
           <div>
@@ -215,7 +788,9 @@ function AthleteCard({ athlete, viewMode, onClick }: AthleteCardProps) {
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-[9px] font-black text-brand-red uppercase tracking-widest">BB: {athlete.weight}kg</span>
               <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">BF: {athlete.bodyFatCaliper}%</span>
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">BF (K): {athlete.bf_caliper || 0}%</span>
+              <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
+              <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">IB: {athlete.bf_in_body || 0}%</span>
             </div>
           </div>
         </div>
@@ -233,8 +808,16 @@ function AthleteCard({ athlete, viewMode, onClick }: AthleteCardProps) {
               ></div>
             </div>
           </div>
-          <div className="p-2 rounded-xl bg-slate-50 text-slate-400 group-hover:text-white group-hover:bg-brand-red transition-all">
-            <ChevronRight className="w-4 h-4" />
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={onDelete}
+              className="p-2 rounded-xl bg-slate-50 text-slate-400 hover:text-white hover:bg-rose-500 transition-all"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+            <div className="p-2 rounded-xl bg-slate-50 text-slate-400 group-hover:text-white group-hover:bg-brand-red transition-all">
+              <ChevronRight className="w-4 h-4" />
+            </div>
           </div>
         </div>
       </motion.div>
@@ -251,7 +834,7 @@ function AthleteCard({ athlete, viewMode, onClick }: AthleteCardProps) {
     >
       <div className={cn(
         "absolute -inset-0.5 rounded-[2.5rem] blur opacity-0 group-hover:opacity-20 transition duration-500",
-        athlete.status === 'Fit' ? "bg-green-500" : athlete.status === 'Cedera' ? "bg-brand-red" : "bg-yellow-500"
+        athlete.status === 'AKTIF' ? "bg-green-500" : "bg-slate-400"
       )}></div>
       
       <div className="relative bg-white border border-slate-200 group-hover:border-brand-red/20 rounded-[2.5rem] p-6 cursor-pointer transition-all shadow-sm group-hover:shadow-xl overflow-hidden">
@@ -264,16 +847,16 @@ function AthleteCard({ athlete, viewMode, onClick }: AthleteCardProps) {
               <div className="relative">
                 <div className={cn(
                   "absolute -inset-1 rounded-2xl blur-sm opacity-0 group-hover:opacity-40 transition-opacity",
-                  athlete.status === 'Fit' ? "bg-green-500" : athlete.status === 'Cedera' ? "bg-brand-red" : "bg-yellow-500"
+                  athlete.status === 'AKTIF' ? "bg-green-500" : "bg-slate-400"
                 )}></div>
                 <img 
-                  src={athlete.imageUrl} 
+                  src={athlete.image_url} 
                   alt={athlete.name} 
                   className="relative w-16 h-16 rounded-2xl object-cover border-2 border-white shadow-md group-hover:scale-105 transition-transform duration-500" 
                 />
                 <div className={cn(
                   "absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-4 border-white shadow-sm",
-                  athlete.status === 'Fit' ? "bg-green-500" : athlete.status === 'Cedera' ? "bg-red-500" : "bg-yellow-500"
+                  athlete.status === 'AKTIF' ? "bg-green-500" : "bg-slate-400"
                 )}></div>
               </div>
               <div>
@@ -283,9 +866,15 @@ function AthleteCard({ athlete, viewMode, onClick }: AthleteCardProps) {
               </div>
             </div>
             
-            <div className="flex flex-col items-end gap-3">
-              <div className="p-2 rounded-2xl bg-slate-50 text-slate-400 group-hover:text-white group-hover:bg-brand-red transition-all shadow-sm group-hover:shadow-brand-red/20">
-                <ChevronRight className="w-5 h-5" />
+            <div className="flex flex-col items-end gap-2">
+              <button 
+                onClick={onDelete}
+                className="p-2 rounded-xl bg-slate-50 text-slate-400 hover:text-white hover:bg-rose-500 transition-all shadow-sm hover:shadow-rose-500/20"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+              <div className="p-2 rounded-xl bg-slate-50 text-slate-400 group-hover:text-white group-hover:bg-brand-red transition-all shadow-sm group-hover:shadow-brand-red/20">
+                <ChevronRight className="w-4 h-4" />
               </div>
             </div>
           </div>
@@ -305,7 +894,7 @@ function AthleteCard({ athlete, viewMode, onClick }: AthleteCardProps) {
               </div>
               <div className="space-y-1.5">
                 <div className="flex justify-between text-[8px] font-black uppercase tracking-widest">
-                  <span className="text-slate-400">Target: {athlete.targetWeight}kg</span>
+                  <span className="text-slate-400">Target: {athlete.target_weight}kg</span>
                   <span className="text-brand-red">{weightProgress}%</span>
                 </div>
                 <div className="w-full h-1.5 bg-slate-200/50 rounded-full overflow-hidden">
@@ -322,15 +911,19 @@ function AthleteCard({ athlete, viewMode, onClick }: AthleteCardProps) {
                 <div className="p-1.5 rounded-lg bg-white shadow-sm">
                   <Activity className="w-3.5 h-3.5 text-slate-400" />
                 </div>
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Body Fat</span>
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Body Fat (K)</span>
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-lg font-black text-slate-900">{athlete.bodyFatCaliper}</span>
+                <span className="text-lg font-black text-brand-red">{athlete.bf_caliper || 0}</span>
                 <span className="text-[10px] font-bold text-slate-400">%</span>
+              </div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">InBody</span>
+                <span className="text-[10px] font-black text-blue-600">{athlete.bf_in_body || 0}%</span>
               </div>
               <div className="space-y-1.5">
                 <div className="flex justify-between text-[8px] font-black uppercase tracking-widest">
-                  <span className="text-slate-400">Target: {athlete.targetBodyFat}%</span>
+                  <span className="text-slate-400">Target: {athlete.target_body_fat}%</span>
                   <span className="text-emerald-600">{bfProgress}%</span>
                 </div>
                 <div className="w-full h-1.5 bg-slate-200/50 rounded-full overflow-hidden">
@@ -348,13 +941,15 @@ function AthleteCard({ athlete, viewMode, onClick }: AthleteCardProps) {
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-brand-red animate-pulse"></div>
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                Asesmen: <span className="text-slate-900">{lastUpdateDate}</span>
+                Asesmen: <span className="text-slate-900">{lastAssessment?.total || 'N/A'}</span>
               </span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full bg-slate-200"></div>
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                Update: <span className="text-slate-500">4J LALU</span>
+                Update: <span className="text-slate-900">
+                  {lastAssessment ? formatDistanceToNow(new Date(lastAssessment.date), { addSuffix: true, locale: id }).toUpperCase() : 'N/A'}
+                </span>
               </span>
             </div>
           </div>
@@ -364,30 +959,40 @@ function AthleteCard({ athlete, viewMode, onClick }: AthleteCardProps) {
   );
 }
 
-function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boolean, onClose: () => void, onAdd: (a: Athlete) => void, categories: string[] }) {
-  const [formData, setFormData] = useState({
+function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boolean, onClose: () => void, onAdd: (a: Athlete, ass: AssessmentEntry) => void, categories: Category[] }) {
+  const initialFormState = {
     name: '',
-    category: categories[0],
-    status: 'Fit' as any,
+    category_id: categories[0]?.id || '',
+    status: 'AKTIF' as any,
     whatsapp: '+62',
-    placeOfBirth: '',
-    dateOfBirth: '',
-    age: 16,
-    height: 168,
-    weight: 77.1,
-    bloodType: 'O',
-    dominantHand: 'Kanan' as any,
-    armCircumference: 32.5,
-    armCircumferenceCategory: 'BESAR',
-    armCircumferenceRangeBB: '64-73',
-    targetWeight: 72,
-    targetBodyFat: 11,
-    bfInBody: 20.4,
-    bicep: 3,
-    tricep: 5,
-    subscapula: 14,
-    abdominal: 15
-  });
+    place_of_birth: '',
+    date_of_birth: '',
+    age: 0,
+    height: 0,
+    weight: 0,
+    blood_type: '',
+    dominant_hand: 'Kanan' as any,
+    arm_circumference: 0,
+    arm_circumference_category: '',
+    arm_circumference_range_bb: '',
+    target_weight: 0,
+    target_body_fat: 0,
+    bf_in_body: 0,
+    bicep: 0,
+    tricep: 0,
+    subscapula: 0,
+    abdominal: 0,
+    gender: 'Laki-laki' as 'Laki-laki' | 'Perempuan'
+  };
+
+  const [formData, setFormData] = useState(initialFormState);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+
+  useEffect(() => {
+    if (isOpen && categories.length > 0) {
+      setFormData(prev => ({ ...prev, category_id: categories[0].id }));
+    }
+  }, [isOpen, categories]);
 
   if (!isOpen) return null;
 
@@ -396,71 +1001,64 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
     
     // Calculate initial assessment values
     const total = formData.bicep + formData.tricep + formData.subscapula + formData.abdominal;
-    const bfCaliper = Number((total * 0.4).toFixed(1)); // Mock formula
-    const fm = Number((formData.weight * (bfCaliper / 100)).toFixed(2));
+    
+    // Body fat calculation based on gender
+    let bf_caliper = 0;
+    if (total >= 15) {
+      const bf = getBFFromTable(total, formData.gender);
+      bf_caliper = bf !== null ? bf : Number(((total * 0.25) + 2).toFixed(1));
+    } else {
+      bf_caliper = Number(((total * 0.25) + 2).toFixed(1));
+    }
+
+    const fm = Number((formData.weight * (bf_caliper / 100)).toFixed(2));
     const lbm = Number((formData.weight - fm).toFixed(2));
 
     const initialAssessment: AssessmentEntry = {
-      date: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' }).toUpperCase(),
-      bfInBody: formData.bfInBody,
+      date: new Date().toISOString().split('T')[0],
+      bf_in_body: formData.bf_in_body,
       bicep: formData.bicep,
       tricep: formData.tricep,
       subscapula: formData.subscapula,
       abdominal: formData.abdominal,
       total,
-      bfCaliper,
+      bf_caliper,
       weight: formData.weight,
       lbm,
       fm
     };
 
-    const newAthlete: Athlete = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: formData.name,
-      division: formData.category as any,
-      sector: '' as any,
-      status: formData.status,
-      weight: formData.weight,
-      targetWeight: formData.targetWeight,
-      hydrationLevel: 95,
-      sleepHours: 8,
-      rpe: 5,
-      imageUrl: `https://picsum.photos/seed/${formData.name}/200/200`,
-      compliance: 100,
-      placeOfBirth: formData.placeOfBirth,
-      dateOfBirth: formData.dateOfBirth,
-      age: formData.age,
-      gender: 'Laki-laki',
-      height: formData.height,
-      armCircumference: formData.armCircumference,
-      armCircumferenceCategory: formData.armCircumferenceCategory,
-      armCircumferenceRangeBB: formData.armCircumferenceRangeBB,
-      bodyFatCaliper: bfCaliper,
-      bodyFatInBody: formData.bfInBody,
-      targetBodyFat: formData.targetBodyFat,
-      skeletalMuscleMass: lbm,
-      bmr: 1700,
-      exerciseCalories: 1447,
-      presentEnergy: 4230,
-      dailyCalories: 3500,
-      foodAllergies: [],
-      foodPreferences: [],
-      supplements: [],
-      bloodLab: { hb: 15, ferritin: 100, vitD: 40 },
-      sweatRate: 1.0,
-      whatsapp: formData.whatsapp,
-      email: `${formData.name.toLowerCase().replace(/\s+/g, '.')}@athlete.id`,
-      bloodType: formData.bloodType,
-      dominantHand: formData.dominantHand,
-      joinYear: new Date().getFullYear(),
-      apparelSize: { shirt: 'M', shoe: 42 },
-      socialMedia: { instagram: '@' + formData.name.toLowerCase().replace(/\s+/g, '') },
-      emergencyContact: { name: 'Keluarga', relation: 'Wali', phone: '+628000000001' },
-      assessmentHistory: [initialAssessment],
-      notes: [],
-      injuries: []
+    const handleFinalSubmit = async (finalImageUrl: string) => {
+      const newAthlete: Athlete = {
+        id: '', // Generated by DB
+        name: formData.name,
+        category_id: formData.category_id,
+        status: formData.status,
+        whatsapp: formData.whatsapp,
+        place_of_birth: formData.place_of_birth,
+        date_of_birth: formData.date_of_birth,
+        age: formData.age,
+        gender: formData.gender,
+        height: formData.height,
+        blood_type: formData.blood_type,
+        dominant_hand: formData.dominant_hand,
+        arm_circumference: formData.arm_circumference,
+        arm_circumference_category: formData.arm_circumference_category,
+        arm_circumference_range_bb: formData.arm_circumference_range_bb,
+        target_weight: formData.target_weight,
+        target_body_fat: formData.target_body_fat,
+        image_url: finalImageUrl
+      };
+      onAdd(newAthlete, initialAssessment);
     };
-    onAdd(newAthlete);
+
+    if (imageFile) {
+      uploadAthleteImage(imageFile, `new-${Date.now()}`).then(url => {
+        handleFinalSubmit(url || `https://picsum.photos/seed/${formData.name}/200/200`);
+      });
+    } else {
+      handleFinalSubmit(`https://picsum.photos/seed/${formData.name}/200/200`);
+    }
   };
 
   return (
@@ -497,15 +1095,25 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 />
               </div>
               <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Jenis Kelamin</label>
+                <select 
+                  value={formData.gender}
+                  onChange={e => setFormData({...formData, gender: e.target.value as any})}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all"
+                >
+                  <option value="Laki-laki">Laki-laki</option>
+                  <option value="Perempuan">Perempuan</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Status</label>
                 <select 
                   value={formData.status}
                   onChange={e => setFormData({...formData, status: e.target.value as any})}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all"
                 >
-                  <option value="Fit">Fit</option>
-                  <option value="Cedera">Cedera</option>
-                  <option value="Recovery">Pemulihan</option>
+                  <option value="AKTIF">AKTIF</option>
+                  <option value="NON AKTIF">NON AKTIF</option>
                 </select>
               </div>
               <div className="space-y-1.5">
@@ -521,11 +1129,11 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Kategori</label>
                 <select 
-                  value={formData.category}
-                  onChange={e => setFormData({...formData, category: e.target.value})}
+                  value={formData.category_id}
+                  onChange={e => setFormData({...formData, category_id: e.target.value})}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all"
                 >
-                  {categories.filter(c => c !== 'All').map(c => <option key={c} value={c}>{c}</option>)}
+                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
             </div>
@@ -539,8 +1147,8 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Tempat Lahir</label>
                 <input 
                   type="text" 
-                  value={formData.placeOfBirth}
-                  onChange={e => setFormData({...formData, placeOfBirth: e.target.value})}
+                  value={formData.place_of_birth}
+                  onChange={e => setFormData({...formData, place_of_birth: e.target.value})}
                   placeholder="Contoh: Jakarta" 
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
@@ -548,10 +1156,17 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Tanggal Lahir</label>
                 <input 
-                  type="text" 
-                  value={formData.dateOfBirth}
-                  onChange={e => setFormData({...formData, dateOfBirth: e.target.value})}
-                  placeholder="Contoh: 12 Agustus 2009" 
+                  type="date" 
+                  value={formData.date_of_birth}
+                  onChange={e => {
+                    const dob = e.target.value;
+                    const date = new Date(dob);
+                    let age = formData.age;
+                    if (!isNaN(date.getTime())) {
+                      age = differenceInYears(new Date(), date);
+                    }
+                    setFormData({...formData, date_of_birth: dob, age});
+                  }}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
               </div>
@@ -559,8 +1174,8 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Umur</label>
                 <input 
                   type="number" 
-                  value={formData.age}
-                  onChange={e => setFormData({...formData, age: parseInt(e.target.value)})}
+                  value={formData.age || ''}
+                  onChange={e => setFormData({...formData, age: parseInt(e.target.value) || 0})}
                   placeholder="16" 
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
@@ -569,30 +1184,27 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Tinggi Badan (cm)</label>
                 <input 
                   type="number" 
-                  value={formData.height}
-                  onChange={e => setFormData({...formData, height: parseInt(e.target.value)})}
+                  value={formData.height || ''}
+                  onChange={e => setFormData({...formData, height: parseInt(e.target.value) || 0})}
                   placeholder="168" 
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Golongan Darah</label>
-                <select 
-                  value={formData.bloodType}
-                  onChange={e => setFormData({...formData, bloodType: e.target.value})}
+                <input 
+                  type="text"
+                  value={formData.blood_type}
+                  onChange={e => setFormData({...formData, blood_type: e.target.value})}
+                  placeholder="Contoh: O"
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all"
-                >
-                  <option value="A">A</option>
-                  <option value="B">B</option>
-                  <option value="AB">AB</option>
-                  <option value="O">O</option>
-                </select>
+                />
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Tangan Dominan</label>
                 <select 
-                  value={formData.dominantHand}
-                  onChange={e => setFormData({...formData, dominantHand: e.target.value as any})}
+                  value={formData.dominant_hand}
+                  onChange={e => setFormData({...formData, dominant_hand: e.target.value as any})}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all"
                 >
                   <option value="Kanan">Kanan</option>
@@ -611,8 +1223,8 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <input 
                   type="number" 
                   step="0.1" 
-                  value={formData.armCircumference}
-                  onChange={e => setFormData({...formData, armCircumference: parseFloat(e.target.value)})}
+                  value={formData.arm_circumference || ''}
+                  onChange={e => setFormData({...formData, arm_circumference: parseFloat(e.target.value) || 0})}
                   placeholder="32.5" 
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
@@ -621,8 +1233,8 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Kategori Lengan</label>
                 <input 
                   type="text" 
-                  value={formData.armCircumferenceCategory}
-                  onChange={e => setFormData({...formData, armCircumferenceCategory: e.target.value})}
+                  value={formData.arm_circumference_category}
+                  onChange={e => setFormData({...formData, arm_circumference_category: e.target.value})}
                   placeholder="BESAR" 
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
@@ -631,8 +1243,8 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Range BB Ideal</label>
                 <input 
                   type="text" 
-                  value={formData.armCircumferenceRangeBB}
-                  onChange={e => setFormData({...formData, armCircumferenceRangeBB: e.target.value})}
+                  value={formData.arm_circumference_range_bb}
+                  onChange={e => setFormData({...formData, arm_circumference_range_bb: e.target.value})}
                   placeholder="64-73" 
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
@@ -641,9 +1253,9 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Target Berat Badan (kg)</label>
                 <input 
                   type="number" 
-                  step="0.1" 
-                  value={formData.targetWeight}
-                  onChange={e => setFormData({...formData, targetWeight: parseFloat(e.target.value)})}
+                  step="any" 
+                  value={formData.target_weight || ''}
+                  onChange={e => setFormData({...formData, target_weight: parseFloat(e.target.value) || 0})}
                   placeholder="72" 
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
@@ -652,13 +1264,25 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Target Body Fat (%)</label>
                 <input 
                   type="number" 
-                  step="0.1" 
-                  value={formData.targetBodyFat}
-                  onChange={e => setFormData({...formData, targetBodyFat: parseFloat(e.target.value)})}
+                  step="any" 
+                  value={formData.target_body_fat || ''}
+                  onChange={e => setFormData({...formData, target_body_fat: parseFloat(e.target.value) || 0})}
                   placeholder="11" 
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
               </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h4 className="text-[10px] font-black text-brand-red uppercase tracking-[0.2em]">Foto Profil</h4>
+            <div className="space-y-1.5">
+              <input 
+                type="file" 
+                accept="image/*"
+                onChange={e => setImageFile(e.target.files?.[0] || null)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-slate-900 file:text-white hover:file:bg-slate-800"
+              />
             </div>
           </div>
 
@@ -671,8 +1295,8 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <input 
                   type="number" 
                   step="0.1" 
-                  value={formData.weight}
-                  onChange={e => setFormData({...formData, weight: parseFloat(e.target.value)})}
+                  value={formData.weight || ''}
+                  onChange={e => setFormData({...formData, weight: parseFloat(e.target.value) || 0})}
                   placeholder="77.1" 
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
@@ -682,8 +1306,8 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <input 
                   type="number" 
                   step="0.1" 
-                  value={formData.bfInBody}
-                  onChange={e => setFormData({...formData, bfInBody: parseFloat(e.target.value)})}
+                  value={formData.bf_in_body || ''}
+                  onChange={e => setFormData({...formData, bf_in_body: parseFloat(e.target.value) || 0})}
                   placeholder="20.4" 
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
@@ -695,8 +1319,8 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <input 
                   type="number" 
                   step="0.1" 
-                  value={formData.bicep}
-                  onChange={e => setFormData({...formData, bicep: parseFloat(e.target.value)})}
+                  value={formData.bicep || ''}
+                  onChange={e => setFormData({...formData, bicep: parseFloat(e.target.value) || 0})}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
               </div>
@@ -705,8 +1329,8 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <input 
                   type="number" 
                   step="0.1" 
-                  value={formData.tricep}
-                  onChange={e => setFormData({...formData, tricep: parseFloat(e.target.value)})}
+                  value={formData.tricep || ''}
+                  onChange={e => setFormData({...formData, tricep: parseFloat(e.target.value) || 0})}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
               </div>
@@ -715,8 +1339,8 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <input 
                   type="number" 
                   step="0.1" 
-                  value={formData.subscapula}
-                  onChange={e => setFormData({...formData, subscapula: parseFloat(e.target.value)})}
+                  value={formData.subscapula || ''}
+                  onChange={e => setFormData({...formData, subscapula: parseFloat(e.target.value) || 0})}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
               </div>
@@ -725,8 +1349,8 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
                 <input 
                   type="number" 
                   step="0.1" 
-                  value={formData.abdominal}
-                  onChange={e => setFormData({...formData, abdominal: parseFloat(e.target.value)})}
+                  value={formData.abdominal || ''}
+                  onChange={e => setFormData({...formData, abdominal: parseFloat(e.target.value) || 0})}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" 
                 />
               </div>
@@ -748,37 +1372,116 @@ function AddAthleteModal({ isOpen, onClose, onAdd, categories }: { isOpen: boole
   );
 }
 
-function ManageCategoriesModal({ isOpen, onClose, categories, setCategories }: { isOpen: boolean, onClose: () => void, categories: string[], setCategories: (c: string[]) => void }) {
+function ManageCategoriesModal({ 
+  isOpen, 
+  onClose, 
+  categories, 
+  setCategories,
+  refreshCategories,
+  deleteCategory,
+  fetchAthletes,
+  setConfirmConfig,
+  setNotification
+}: { 
+  isOpen: boolean, 
+  onClose: () => void, 
+  categories: Category[], 
+  setCategories: (c: Category[]) => void,
+  refreshCategories: () => Promise<void>,
+  deleteCategory: (id: string) => Promise<void>,
+  fetchAthletes: () => Promise<void>,
+  setConfirmConfig: Dispatch<SetStateAction<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type: 'danger' | 'warning';
+  }>>,
+  setNotification: Dispatch<SetStateAction<{
+    show: boolean;
+    title: string;
+    message: string;
+  }>>
+}) {
   const [newItem, setNewItem] = useState('');
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState('');
 
   if (!isOpen) return null;
 
-  const handleAdd = () => {
+  const showNotification = (title: string, message: string) => {
+    setNotification({ show: true, title, message });
+    setTimeout(() => {
+      setNotification({ show: false, title: '', message: '' });
+    }, 3000);
+  };
+
+  const handleAdd = async () => {
     if (newItem.trim()) {
-      setCategories([...categories, newItem.trim()]);
-      setNewItem('');
+      const { data, error } = await supabase.from('categories').insert([{ name: newItem.trim() }]).select();
+      if (error) {
+        console.error('Error adding category:', error);
+        showNotification('Gagal', 'Gagal menambah kategori.');
+      } else {
+        setNewItem('');
+        refreshCategories();
+        showNotification('Berhasil', 'Kategori berhasil ditambah.');
+      }
     }
   };
 
-  const handleDelete = (index: number) => {
-    const newItems = [...categories];
-    newItems.splice(index, 1);
-    setCategories(newItems);
+  const handleDelete = async (id: string, name: string) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Hapus Kategori',
+      message: `Apakah Anda yakin ingin menghapus kategori "${name}"? Tindakan ini dapat mempengaruhi data atlet terkait.`,
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          await deleteCategory(id);
+          await fetchAthletes();
+          showNotification('Berhasil', 'Kategori berhasil dihapus.');
+        } catch (error) {
+          console.error('Error deleting category:', error);
+          showNotification('Gagal', 'Gagal menghapus kategori.');
+        }
+      }
+    });
   };
 
-  const handleStartEdit = (index: number, value: string) => {
-    setEditingIndex(index);
+  const handleStartEdit = (id: string, value: string) => {
+    setEditingId(id);
     setEditingValue(value);
   };
 
-  const handleSaveEdit = () => {
-    if (editingIndex !== null && editingValue.trim()) {
-      const newItems = [...categories];
-      newItems[editingIndex] = editingValue.trim();
-      setCategories(newItems);
-      setEditingIndex(null);
+  const handleSaveEdit = async () => {
+    if (editingId !== null && editingValue.trim()) {
+      // Find current name for confirmation message
+      const currentCat = categories.find(c => c.id === editingId);
+      if (currentCat && currentCat.name === editingValue.trim()) {
+        setEditingId(null);
+        return;
+      }
+
+      setConfirmConfig({
+        isOpen: true,
+        title: 'Update Kategori',
+        message: `Apakah Anda yakin ingin mengubah nama kategori menjadi "${editingValue.trim()}"?`,
+        type: 'warning',
+        onConfirm: async () => {
+          try {
+            const { error } = await supabase.from('categories').update({ name: editingValue.trim() }).eq('id', editingId);
+            if (error) throw error;
+            setEditingId(null);
+            await refreshCategories();
+            await fetchAthletes();
+            showNotification('Berhasil', 'Kategori berhasil diupdate.');
+          } catch (error) {
+            console.error('Error updating category:', error);
+            showNotification('Gagal', 'Gagal mengupdate kategori.');
+          }
+        }
+      });
     }
   };
 
@@ -817,9 +1520,9 @@ function ManageCategoriesModal({ isOpen, onClose, categories, setCategories }: {
           </div>
 
           <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-            {categories.map((item, idx) => (
-              <div key={idx} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100 group">
-                {editingIndex === idx ? (
+            {categories.map((item) => (
+              <div key={item.id} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100 group">
+                {editingId === item.id ? (
                   <input 
                     autoFocus
                     type="text" 
@@ -830,20 +1533,20 @@ function ManageCategoriesModal({ isOpen, onClose, categories, setCategories }: {
                     className="flex-1 bg-white border border-brand-red rounded-xl px-3 py-1 text-sm font-bold outline-none"
                   />
                 ) : (
-                  <span className="text-sm font-bold text-slate-700">{item}</span>
+                  <span className="text-sm font-bold text-slate-700">{item.name}</span>
                 )}
                 
                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {editingIndex === idx ? (
+                  {editingId === item.id ? (
                     <button onClick={handleSaveEdit} className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors">
                       <Check className="w-4 h-4" />
                     </button>
                   ) : (
-                    <button onClick={() => handleStartEdit(idx, item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                    <button onClick={() => handleStartEdit(item.id, item.name)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                       <Edit2 className="w-4 h-4" />
                     </button>
                   )}
-                  <button onClick={() => handleDelete(idx)} className="p-2 text-slate-400 hover:text-brand-red hover:bg-rose-50 rounded-lg transition-colors">
+                  <button onClick={() => handleDelete(item.id, item.name)} className="p-2 text-slate-400 hover:text-brand-red hover:bg-rose-50 rounded-lg transition-colors">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>

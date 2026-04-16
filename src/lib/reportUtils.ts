@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import domtoimage from 'dom-to-image-more';
-import { Athlete, AssessmentEntry } from '../data/mockData';
+import { Athlete, AssessmentEntry } from '../types';
 
 export const generateAssessmentPDF = (
   athlete: Athlete, 
@@ -44,25 +44,25 @@ export const generateAssessmentPDF = (
   doc.setTextColor(30, 41, 59);
   doc.setFont('helvetica', 'bold');
   doc.text(athlete.name.toUpperCase(), 20, 43);
-  doc.text(athlete.division.toUpperCase(), 80, 43);
+  doc.text((athlete.category_name || '').toUpperCase(), 80, 43);
   doc.text(`${athlete.height} CM`, 140, 43);
   
   doc.text(`${athlete.weight} KG`, 20, 58);
-  doc.text(`${athlete.targetWeight} KG`, 80, 58);
-  doc.text(`${athlete.bodyFatCaliper} %`, 140, 58);
+  doc.text(`${athlete.target_weight} KG`, 80, 58);
+  doc.text(`${athlete.bf_caliper} %`, 140, 58);
   
-  doc.text(`${athlete.targetBodyFat} %`, 20, 73);
+  doc.text(`${athlete.target_body_fat} %`, 20, 73);
   
   // Table
   const tableData = assessments.map(entry => [
     entry.date,
-    `${entry.bfInBody}%`,
+    `${entry.bf_in_body}%`,
     entry.bicep,
     entry.tricep,
     entry.subscapula,
     entry.abdominal,
     entry.total,
-    `${entry.bfCaliper}%`,
+    `${entry.bf_caliper}%`,
     `${entry.weight} kg`,
     `${entry.lbm} kg`,
     `${entry.fm} kg`
