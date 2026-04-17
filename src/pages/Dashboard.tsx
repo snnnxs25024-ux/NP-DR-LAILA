@@ -62,7 +62,26 @@ export function Dashboard() {
       }
       setIsLoading(false);
     };
+    
     fetchAthletes();
+
+    // Subscribe to real-time changes
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'athletes' },
+        (payload) => {
+          console.log('Change received!', payload);
+          // Refetch athletes to ensure consistency
+          fetchAthletes();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   useEffect(() => {
@@ -488,7 +507,7 @@ export function Dashboard() {
         </div>
 
         <div className="h-[350px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer minWidth={1} minHeight={1} width="100%" height="100%">
             <AreaChart data={currentPerformanceData}>
               <defs>
                 <linearGradient id="colorPerf" x1="0" y1="0" x2="0" y2="1">

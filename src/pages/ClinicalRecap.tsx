@@ -61,8 +61,10 @@ export function ClinicalRecap() {
     return <Minus className="w-3 h-3 text-slate-300 inline" />;
   };
 
-  const handleUpdateAssessment = (athleteId: string, field: keyof AssessmentEntry, value: string) => {
+  const handleUpdateAssessment = async (athleteId: string, field: keyof AssessmentEntry, value: string) => {
     const numValue = parseFloat(value) || 0;
+    
+    // Update local state first for immediate UI response
     setAthletesData(prev => prev.map(athlete => {
       if (athlete.id === athleteId) {
         const history = [...(athlete.assessment_history || [])];
@@ -89,6 +91,30 @@ export function ClinicalRecap() {
       }
       return athlete;
     }));
+
+    // Auto-save to Supabase
+    setSaveStatus('saving');
+    try {
+      const athleteToUpdate = athletesData.find(a => a.id === athleteId);
+      if (athleteToUpdate) {
+        const history = [...(athleteToUpdate.assessment_history || [])];
+        if (history.length > 0) {
+          history[0] = { ...history[0], [field]: numValue };
+        }
+        
+        const { error } = await supabase
+          .from('athletes')
+          .update({ assessment_history: history })
+          .eq('id', athleteId);
+          
+        if (error) throw error;
+        setSaveStatus('success');
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      }
+    } catch (error) {
+      console.error('Error auto-saving:', error);
+      setSaveStatus('idle');
+    }
   };
 
   const handleAddAssessment = (athleteId: string) => {
@@ -213,18 +239,18 @@ export function ClinicalRecap() {
         <div className="overflow-x-auto custom-scrollbar flex-1">
           <table className="w-full text-[10px] border-collapse clinical-table">
             <thead>
-              <tr className="bg-blue-50 border-b border-blue-100">
-                <th className="p-4 border border-blue-100 text-center font-black uppercase sticky left-0 bg-blue-50 text-slate-900 z-20">NO</th>
-                <th className="p-4 border border-blue-100 text-left font-black uppercase sticky left-[41px] bg-blue-50 text-slate-900 z-20 min-w-[180px]">NAMA</th>
-                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-900">TB</th>
-                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-900">BB</th>
-                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-900">TARGET BB</th>
-                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-900">STATUS BB</th>
-                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-900">BF %</th>
-                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-900">TARGET BF</th>
-                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-900">STATUS BF</th>
-                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-900 min-w-[200px]">KESIMPULAN & ARAHAN</th>
-                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-900 no-print">AKSI</th>
+              <tr className="bg-blue-50/50 border-b border-blue-100">
+                <th className="p-4 border border-blue-100 text-center font-black uppercase sticky left-0 bg-blue-50/50 text-slate-800 z-20">NO</th>
+                <th className="p-4 border border-blue-100 text-left font-black uppercase sticky left-[41px] bg-blue-50/50 text-slate-800 z-20 min-w-[180px]">NAMA</th>
+                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-800">TB</th>
+                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-800">BB</th>
+                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-800">TARGET BB</th>
+                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-800">STATUS BB</th>
+                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-800">BF %</th>
+                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-800">TARGET BF</th>
+                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-800">STATUS BF</th>
+                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-800 min-w-[200px]">KESIMPULAN & ARAHAN</th>
+                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-800 no-print">AKSI</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -238,32 +264,32 @@ export function ClinicalRecap() {
                 const conclusion = getConclusion(isWeightAchieved, isBFAchieved);
 
                 return (
-                  <tr key={athlete.id} className="hover:bg-blue-50/30 transition-colors group even:bg-slate-50/50">
-                    <td className="p-4 border border-slate-100 text-center font-bold text-slate-400 sticky left-0 bg-white group-hover:bg-slate-50/50 z-10">{index + 1}</td>
+                  <tr key={athlete.id} className="hover:bg-blue-50/30 transition-colors group even:bg-slate-50/30">
+                    <td className="p-4 border border-slate-100 text-center font-black text-slate-700 sticky left-0 bg-white group-hover:bg-slate-50/50 z-10">{index + 1}</td>
                     <td className="p-4 border border-slate-100 text-left font-black text-slate-900 sticky left-[41px] bg-white group-hover:bg-slate-50/50 z-10">
                       <div className="truncate max-w-[150px]">{athlete.name}</div>
                       {latestAssessment && (
-                        <div className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Update: {latestAssessment.date}</div>
+                        <div className="text-[9px] font-black text-slate-500 uppercase tracking-tighter">Update: {latestAssessment.date}</div>
                       )}
                     </td>
-                    <td className="p-4 border border-slate-100 text-center font-bold text-slate-900">{athlete.height}</td>
+                    <td className="p-4 border border-slate-100 text-center font-bold text-slate-800">{athlete.height}</td>
                     <td className="p-4 border border-slate-100 text-center">
                       <input 
                         type="number"
                         value={currentWeight || ''}
                         onChange={(e) => handleUpdateAssessment(athlete.id, 'weight', e.target.value)}
-                        className="w-12 bg-transparent border-none text-center font-black text-slate-900 focus:ring-0 outline-none"
+                        className="w-12 bg-transparent border-none text-center font-bold text-slate-900 focus:ring-0 outline-none"
                       />
                     </td>
-                    <td className="p-4 border border-slate-100 text-center font-bold text-blue-600 bg-blue-50/5">
+                    <td className="p-4 border border-slate-100 text-center font-bold text-blue-700 bg-blue-50/30">
                       {athlete.target_weight}
                     </td>
-                    <td className="p-4 border border-slate-100 text-center bg-blue-50/10">
+                    <td className="p-4 border border-slate-100 text-center bg-blue-50/5">
                       <span className={cn(
-                        "px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-tighter",
-                        isWeightAchieved ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-brand-red"
+                        "px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter",
+                        isWeightAchieved ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"
                       )}>
-                        {isWeightAchieved ? 'TERCAPAI' : 'BELUM TERCAPAI'}
+                        {isWeightAchieved ? 'TERCAPAI' : 'BELUM'}
                       </span>
                     </td>
                     <td className="p-4 border border-slate-100 text-center">
@@ -271,22 +297,22 @@ export function ClinicalRecap() {
                         type="number"
                         value={currentBF || ''}
                         onChange={(e) => handleUpdateAssessment(athlete.id, 'bf_caliper', e.target.value)}
-                        className="w-10 bg-transparent border-none text-center font-black text-brand-red focus:ring-0 outline-none"
+                        className="w-10 bg-transparent border-none text-center font-bold text-rose-800 focus:ring-0 outline-none"
                       />
                     </td>
-                    <td className="p-4 border border-slate-100 text-center font-bold text-slate-900 bg-rose-50/5">
+                    <td className="p-4 border border-slate-100 text-center font-bold text-slate-800 bg-rose-50/5">
                       {athlete.target_body_fat}%
                     </td>
-                    <td className="p-4 border border-slate-100 text-center bg-rose-50/10">
+                    <td className="p-4 border border-slate-100 text-center bg-rose-50/5">
                       <span className={cn(
-                        "px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-tighter",
-                        isBFAchieved ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-brand-red"
+                        "px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter",
+                        isBFAchieved ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"
                       )}>
-                        {isBFAchieved ? 'TERCAPAI' : 'BELUM TERCAPAI'}
+                        {isBFAchieved ? 'TERCAPAI' : 'BELUM'}
                       </span>
                     </td>
                     <td className="p-4 border border-slate-100 text-center">
-                      <div className={cn("text-[9px] font-black uppercase tracking-tight leading-tight", conclusion.color)}>
+                      <div className={cn("text-[10px] font-black uppercase tracking-tight leading-tight", conclusion.color)}>
                         {conclusion.text}
                       </div>
                     </td>

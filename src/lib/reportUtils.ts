@@ -13,12 +13,12 @@ export const generateAssessmentPDF = (
   const doc = new jsPDF();
   
   // Header
-  doc.setFontSize(18);
-  doc.setTextColor(225, 29, 72); // brand-red
+  doc.setFontSize(16);
+  doc.setTextColor(30, 41, 59); // slate-900
   doc.setFont('helvetica', 'bold');
-  doc.text('LAPORAN ASESMEN FISIK KLINIS', 105, 15, { align: 'center' });
+  doc.text('LAPORAN ASESMEN', 105, 15, { align: 'center' });
   
-  doc.setFontSize(9);
+  doc.setFontSize(10);
   doc.setTextColor(100);
   doc.setFont('helvetica', 'normal');
   doc.text(title, 105, 22, { align: 'center' });
@@ -26,32 +26,51 @@ export const generateAssessmentPDF = (
   // Athlete Info Grid (Header Profile)
   doc.setDrawColor(241, 245, 249);
   doc.setFillColor(248, 250, 252);
-  doc.roundedRect(14, 30, 182, 45, 3, 3, 'F');
+  doc.roundedRect(14, 30, 182, 35, 3, 3, 'F');
   
   doc.setFontSize(8);
-  doc.setTextColor(148, 163, 184);
-  doc.text('NAMA LENGKAP', 20, 38);
-  doc.text('KATEGORI', 80, 38);
-  doc.text('TINGGI', 140, 38);
-  
-  doc.text('BB SAAT INI', 20, 53);
-  doc.text('TARGET BB', 80, 53);
-  doc.text('BODY FAT', 140, 53);
-  
-  doc.text('TARGET BODY FAT', 20, 68);
-
-  doc.setFontSize(10);
-  doc.setTextColor(30, 41, 59);
+  doc.setTextColor(148, 163, 184); // slate-400
   doc.setFont('helvetica', 'bold');
-  doc.text(athlete.name.toUpperCase(), 20, 43);
-  doc.text((athlete.category_name || '').toUpperCase(), 80, 43);
-  doc.text(`${athlete.height} CM`, 140, 43);
   
-  doc.text(`${athlete.weight} KG`, 20, 58);
-  doc.text(`${athlete.target_weight} KG`, 80, 58);
-  doc.text(`${athlete.bf_caliper} %`, 140, 58);
+  // Athlete Info Block (Centered, styled)
+  doc.setDrawColor(226, 232, 240); // slate-200
+  doc.setFillColor(248, 250, 252); // slate-50
+  doc.roundedRect(14, 30, 182, 35, 3, 3, 'F');
   
-  doc.text(`${athlete.target_body_fat} %`, 20, 73);
+  doc.setFontSize(8);
+  doc.setTextColor(30, 41, 59); // slate-900
+  doc.setFont('helvetica', 'bold');
+  
+  // Column 1 (Left - Profil)
+  doc.text('Nama :', 20, 38);
+  doc.text('Kategori :', 20, 44);
+  doc.text('TB :', 20, 50);
+
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${athlete.name}`, 40, 38);
+  doc.text(`${athlete.category_name || '-'}`, 40, 44);
+  doc.text(`${athlete.height} CM`, 40, 50);
+
+  // Column 2 (Middle - Data Saat Ini)
+  doc.setFont('helvetica', 'bold');
+  doc.text('BB :', 80, 38);
+  doc.text('Body Fat :', 80, 44);
+
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${athlete.weight} KG`, 105, 38);
+  doc.text(`${athlete.bf_caliper || 0} %`, 105, 44);
+
+  // Column 3 (Right - Target)
+  doc.setFont('helvetica', 'bold');
+  doc.text('Target BB :', 135, 38);
+  doc.text('Target BF :', 135, 44);
+
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${athlete.target_weight} KG`, 165, 38);
+  doc.text(`${athlete.target_body_fat} %`, 165, 44);
+  
+  // Table Spacer
+  const tableSpace = 70;
   
   // Table
   const tableData = assessments.map(entry => [
@@ -96,12 +115,12 @@ export const generateAssessmentPDF = (
   }
   
   autoTable(doc, {
-    startY: 85,
+    startY: tableSpace,
     head: [['TANGGAL', 'BF% INB', 'B', 'T', 'SC', 'A', 'TOT', 'BF% CAL', 'BB (KG)', 'LBM', 'FM']],
     body: tableData,
     headStyles: { 
-      fillColor: [239, 246, 255], 
-      textColor: [30, 41, 59],
+      fillColor: [51, 65, 85], // slate-700
+      textColor: [255, 255, 255],
       fontSize: 8,
       fontStyle: 'bold',
       halign: 'center'
@@ -111,10 +130,10 @@ export const generateAssessmentPDF = (
       halign: 'center'
     },
     columnStyles: {
-      0: { halign: 'left', fontStyle: 'bold' }
+      0: { halign: 'center', fontStyle: 'bold' }
     },
-    alternateRowStyles: { fillColor: [252, 253, 255] },
-    margin: { top: 20 },
+    alternateRowStyles: { fillColor: [248, 250, 252] }, // slate-50
+    margin: { top: tableSpace },
     theme: 'grid',
     styles: {
       lineColor: [226, 232, 240],
