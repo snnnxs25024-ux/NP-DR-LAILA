@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { supabase } from '../lib/supabase';
 import { ArrowLeft, Calendar, Activity, Scale, ChevronRight, Share2, Download, Printer, ArrowUpRight, ArrowDownRight, X, Plus, User, MapPin, Ruler, Zap, Droplet, Hand, CalendarDays, Info, Edit2, HeartPulse, Flame, Apple, Target, History, Table, Trash2, Stethoscope, MessageSquareQuote, Filter, CheckCircle2, AlertCircle, TrendingUp } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { getBFFromTable } from '../lib/bodyFat';
@@ -1473,8 +1474,8 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                   </div>
                 </div>
 
-                <div className="h-[350px] w-full mb-10">
-                  <ResponsiveContainer width="100%" height="100%">
+                <div className="h-[350px] w-full mb-10 overflow-hidden">
+                  <ResponsiveContainer minWidth={1} minHeight={1} width="100%" height="100%">
                     <LineChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                       <XAxis 

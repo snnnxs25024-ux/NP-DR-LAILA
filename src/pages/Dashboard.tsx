@@ -305,7 +305,7 @@ export function Dashboard() {
               <div className="space-y-2 max-h-[350px] overflow-y-auto custom-scrollbar pr-2">
                 {reachedAthletes.map(athlete => (
                   <div key={athlete.id} className="athlete-detail-trigger">
-                      <div className="flex items-center justify-between p-3 rounded-2xl border transition-all cursor-pointer"
+                      <div className="flex items-center justify-between p-4 rounded-3xl bg-emerald-50 shadow-sm transition-all cursor-pointer hover:shadow-md hover:bg-emerald-100/50"
                       onClick={() => setActiveAthleteId(activeAthleteId === athlete.id ? null : athlete.id)}
                     >
                       <div className="flex items-center gap-3">
@@ -361,67 +361,60 @@ export function Dashboard() {
                 <Activity className="w-3 h-3" />
                 Masih Dalam Proses
               </h3>
-              <div className="space-y-2 max-h-[350px] overflow-y-auto custom-scrollbar pr-2">
-                {inProgressAthletes.map(athlete => (
-                  <div key={athlete.id} className="athlete-detail-trigger">
-                    <div 
-                      onClick={() => setActiveAthleteId(activeAthleteId === athlete.id ? null : athlete.id)}
-                      className={cn(
-                        "flex items-center justify-between p-3 rounded-2xl border transition-all cursor-pointer",
-                        activeAthleteId === athlete.id
-                          ? "bg-slate-200 border-brand-red shadow-md"
-                          : "bg-slate-50 border-slate-100 hover:border-brand-red/30"
-                      )}
-                    >
-                      <div className="flex items-center gap-3">
-                        <img src={athlete.image_url} alt="" className="w-8 h-8 rounded-lg object-cover" />
-                        <span className="text-sm font-bold text-slate-700">{athlete.name}</span>
+                <div className="space-y-3 max-h-[350px] overflow-y-auto custom-scrollbar pr-2">
+                  {inProgressAthletes.map(athlete => (
+                    <div key={athlete.id} className="athlete-detail-trigger">
+                      <div 
+                        onClick={() => setActiveAthleteId(activeAthleteId === athlete.id ? null : athlete.id)}
+                        className="flex items-center justify-between p-4 rounded-3xl bg-rose-50 shadow-sm transition-all cursor-pointer hover:shadow-md hover:bg-rose-100/50"
+                      >
+                        <div className="flex items-center gap-4">
+                          <img src={athlete.image_url} alt="" className="w-12 h-12 rounded-2xl object-cover shadow-sm" />
+                          <div>
+                            <p className="text-sm font-black text-slate-900">{athlete.name}</p>
+                            <p className="text-[10px] font-bold text-rose-700 uppercase tracking-widest">{athlete.category_name} • {athlete.missedLabel}</p>
+                          </div>
+                        </div>
+                        <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center">
+                          <Activity className="w-4 h-4 text-rose-600"/>
+                        </div>
                       </div>
-                      <div className="flex flex-col items-end">
-                        <span className="text-[10px] font-black text-slate-400 uppercase">{athlete.category_name}</span>
-                        <span className="text-[9px] font-black text-brand-red uppercase tracking-widest">{athlete.missedLabel}</span>
-                      </div>
-                    </div>
 
-                    {/* Detail Card (Expanded) */}
-                    <AnimatePresence>
-                      {activeAthleteId === athlete.id && (
-                        <motion.div 
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="mt-2 p-4 bg-white border border-slate-200 rounded-2xl shadow-inner space-y-3">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-1">
-                                <span className="text-[9px] font-bold text-slate-400 uppercase block">Tinggi Badan</span>
-                                <span className="text-xs font-black text-slate-700">{athlete.height} cm</span>
-                              </div>
-                              <div className="space-y-1">
-                                <span className="text-[9px] font-bold text-slate-400 uppercase block">Fokus Perbaikan</span>
-                                <span className="text-xs font-black text-brand-red">{athlete.missedLabel}</span>
-                              </div>
-                              <div className="space-y-1">
-                                <span className="text-[9px] font-bold text-slate-400 uppercase block">BB / Target</span>
-                                <span className={cn("text-xs font-black", athlete.weightReached ? "text-emerald-600" : "text-brand-red")}>
-                                  {athlete.weight} / {athlete.target_weight} kg
-                                </span>
-                              </div>
-                              <div className="space-y-1">
-                                <span className="text-[9px] font-bold text-slate-400 uppercase block">BF / Target</span>
-                                <span className={cn("text-xs font-black", athlete.bfReached ? "text-emerald-600" : "text-brand-red")}>
-                                  {athlete.bf_in_body}% / {athlete.target_body_fat}%
-                                </span>
+                      {/* Detail Card (Expanded) */}
+                      <AnimatePresence>
+                        {activeAthleteId === athlete.id && (
+                          <motion.div 
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="mt-2 p-5 bg-white border border-rose-100 rounded-3xl shadow-inner space-y-4">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Tinggi Badan</span>
+                                  <span className="text-sm font-black text-slate-700">{athlete.height} cm</span>
+                                </div>
+                                <div className="space-y-1">
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Fokus</span>
+                                  <span className="text-sm font-black text-brand-red">{athlete.missedLabel}</span>
+                                </div>
+                                <div className="space-y-1">
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase block">BB</span>
+                                  <span className="text-sm font-black text-slate-700">{athlete.weight} kg</span>
+                                </div>
+                                <div className="space-y-1">
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase block">BF</span>
+                                  <span className="text-sm font-black text-slate-700">{athlete.bf_in_body}%</span>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                ))}
-              </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  ))}
+                </div>
             </div>
           </div>
         </motion.div>
