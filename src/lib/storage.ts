@@ -2,23 +2,13 @@ import { supabase } from './supabase';
 
 export async function uploadAthleteImage(file: File, athleteId: string): Promise<string | null> {
   try {
-    // Ensure bucket exists (this might fail if not admin, but we try)
-    try {
-      const { data: buckets } = await supabase.storage.listBuckets();
-      if (!buckets?.find(b => b.name === 'athletes')) {
-        await supabase.storage.createBucket('athletes', { public: true });
-      }
-    } catch (e) {
-      console.warn('Could not verify/create bucket:', e);
-    }
-
     const fileExt = file.name.split('.').pop();
+    // Use an absolutely flat path on the root of the bucket
     const fileName = `${athleteId}-${Date.now()}.${fileExt}`;
-    const filePath = `profiles/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
-      .from('athletes')
-      .upload(filePath, file, {
+      .from('profile')
+      .upload(fileName, file, {
         cacheControl: '3600',
         upsert: true
       });
@@ -29,8 +19,8 @@ export async function uploadAthleteImage(file: File, athleteId: string): Promise
     }
 
     const { data } = supabase.storage
-      .from('athletes')
-      .getPublicUrl(filePath);
+      .from('profile')
+      .getPublicUrl(fileName);
 
     return data.publicUrl;
   } catch (error) {

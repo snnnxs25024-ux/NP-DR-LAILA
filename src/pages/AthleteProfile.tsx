@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { ArrowLeft, Calendar, Activity, Scale, ChevronRight, Share2, Download, Printer, ArrowUpRight, ArrowDownRight, X, Plus, User, MapPin, Ruler, Zap, Droplet, Hand, CalendarDays, Info, Edit2, HeartPulse, Flame, Apple, Target, History, Table, Trash2, Stethoscope, MessageSquareQuote, Filter, CheckCircle2, AlertCircle, TrendingUp } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { getBFFromTable } from '../lib/bodyFat';
+import { calculateAssessmentMetrics } from './Assessments';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { downloadCSV, triggerPrint } from '../lib/exportUtils';
@@ -111,7 +111,7 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
     } else {
       // Fetch related data
       const [assessmentsRes, notesRes, injuriesRes] = await Promise.all([
-        supabase.from('assessments').select('*').eq('athlete_id', athleteId).order('date', { ascending: false }),
+        supabase.from('assessments').select('*').eq('athlete_id', athleteId).order('created_at', { ascending: false }),
         supabase.from('notes').select('*').eq('athlete_id', athleteId).order('date', { ascending: false }),
         supabase.from('injuries').select('*').eq('athlete_id', athleteId).order('date', { ascending: false })
       ]);
@@ -229,12 +229,25 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
     const dateInput = formData.get('date') as string;
     const notes = formData.get('notes') as string;
     
-    const total = bicep + tricep + subscapula + abdominal;
-    const bf_caliper = Number(((total * 0.25) + 2).toFixed(1)); 
-    const fm = Number((weight * (bf_caliper / 100)).toFixed(2));
-    const lbm = Number((weight - fm).toFixed(2));
+    const assessmentBase = {
+      bicep,
+      tricep,
+      subscapula,
+      abdominal,
+      weight
+    };
+    const calculated = calculateAssessmentMetrics(assessmentBase, athlete.gender);
+    const { total, bf_caliper, fm, lbm } = calculated;
 
     const date = dateInput || new Date().toISOString().split('T')[0];
+
+    // Capture the absolute local time of the user's browser down to the minute to avoid UTC mismatches
+    const localNow = new Date();
+    // Keep it compatible with ISO format for DB, but ensure the string we save exactly represents their local time
+    // We achieve this by offsetting the ISO string back to look like local time, effectively freezing it.
+    const tzOffset = localNow.getTimezoneOffset() * 60000;
+    const localIsoString = (new Date(localNow.getTime() - tzOffset)).toISOString().slice(0, -1) + '+07:00'; 
+    // We force the UTC offset string to represent the exact local time perceived by the user.
 
     try {
       // 1. Insert assessment
@@ -243,6 +256,7 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
         .insert([{
           athlete_id: athleteId,
           date,
+          created_at: localIsoString, // Force absolute local time stamp
           weight,
           bf_in_body,
           bicep,
@@ -295,10 +309,15 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
     const date = formData.get('date') as string;
     const notes = formData.get('notes') as string;
     
-    const total = bicep + tricep + subscapula + abdominal;
-    const bf_caliper = Number(((total * 0.25) + 2).toFixed(1)); 
-    const fm = Number((weight * (bf_caliper / 100)).toFixed(2));
-    const lbm = Number((weight - fm).toFixed(2));
+    const assessmentBase = {
+      bicep,
+      tricep,
+      subscapula,
+      abdominal,
+      weight
+    };
+    const calculated = calculateAssessmentMetrics(assessmentBase, athlete.gender);
+    const { total, bf_caliper, fm, lbm } = calculated;
 
     try {
       setConfirmConfig({

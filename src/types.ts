@@ -2,6 +2,7 @@ export interface AssessmentEntry {
   id?: string;
   athlete_id?: string;
   date: string;
+  created_at?: string;
   weight: number;
   bf_caliper: number;
   bf_in_body: number;

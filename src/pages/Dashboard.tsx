@@ -49,15 +49,30 @@ export function Dashboard() {
         .from('athletes')
         .select(`
           *,
-          categories:category_id (name)
+          categories:category_id (name),
+          assessments (
+            id, date, weight, bf_in_body, bf_caliper, bicep, tricep, subscapula, abdominal, total, lbm, fm, notes
+          )
         `);
       if (error) {
         console.error('Error fetching athletes:', error);
       } else {
-        const mappedData = data.map((a: any) => ({
-          ...a,
-          category_name: a.categories?.name || 'Unknown'
-        }));
+        const mappedData = data.map((a: any) => {
+          const assessments = (a.assessments || []).sort((a: any, b: any) => 
+            new Date(b.date).getTime() - new Date(a.date).getTime()
+          );
+          const latest = assessments[0];
+          
+          return {
+            ...a,
+            category_name: a.categories?.name || 'Unknown',
+            assessment_history: assessments,
+            // Sync snapshot dynamic from latest assessment
+            weight: latest ? latest.weight : a.weight,
+            bf_in_body: latest ? latest.bf_in_body : a.bf_in_body,
+            bf_caliper: latest ? latest.bf_caliper : a.bf_caliper
+          };
+        });
         setAthletes(mappedData as Athlete[]);
       }
       setIsLoading(false);

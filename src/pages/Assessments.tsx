@@ -28,7 +28,36 @@ const bodyFatChartWomen: Record<number, number> = {
   150: 42.3, 160: 43.2, 170: 44, 180: 45, 190: 45.8, 200: 46.5
 };
 
-function getBFFromTable(sum: number, gender: 'Laki-laki' | 'Perempuan'): number | null {
+export const calculateAssessmentMetrics = (data: Partial<AssessmentEntry>, gender: string) => {
+  const updated = { ...data };
+  
+  // 1. Calculate Total Skinfold
+  const b = Number(updated.bicep || 0);
+  const t = Number(updated.tricep || 0);
+  const sc = Number(updated.subscapula || 0);
+  const a = Number(updated.abdominal || 0);
+  updated.total = b + t + sc + a;
+  
+  // 2. Calculate Body Fat % (Caliper)
+  if (updated.total >= 15) {
+    const bf = getBFFromTable(updated.total, gender as 'Laki-laki' | 'Perempuan');
+    updated.bf_caliper = bf !== null ? bf : Number(((updated.total * 0.25) + 2).toFixed(1));
+  } else {
+    updated.bf_caliper = Number(((updated.total * 0.25) + 2).toFixed(1));
+  }
+  
+  // 3. Calculate LBM and FM
+  const weight = Number(updated.weight || 0);
+  const bf = Number(updated.bf_caliper || 0);
+  if (weight > 0) {
+    updated.fm = Number((weight * (bf / 100)).toFixed(2));
+    updated.lbm = Number((weight - updated.fm).toFixed(2));
+  }
+  
+  return updated;
+};
+
+export function getBFFromTable(sum: number, gender: 'Laki-laki' | 'Perempuan'): number | null {
   if (sum < 15) return null;
   const chart = gender === 'Laki-laki' ? bodyFatChartMen : bodyFatChartWomen;
   if (chart[sum] !== undefined) return chart[sum];
@@ -48,12 +77,18 @@ function getBFFromTable(sum: number, gender: 'Laki-laki' | 'Perempuan'): number 
 
 export function Assessments() {
   const [athletes, setAthletes] = useState<Athlete[]>([]);
+  const [categories, setCategories] = useState<string[]>(['All']);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDivision, setSelectedDivision] = useState<string>('All');
   const [assessmentDate, setAssessmentDate] = useState(new Date().toISOString().split('T')[0]);
   
   useEffect(() => {
-    const fetchAthletes = async () => {
+    const fetchInitialData = async () => {
+      // Fetch categories
+      const { data: catData } = await supabase.from('categories').select('name');
+      if (catData) setCategories(['All', ...catData.map(c => c.name)]);
+
+      // Fetch athletes
       const { data, error } = await supabase
         .from('athletes')
         .select(`
@@ -93,7 +128,7 @@ export function Assessments() {
         setAthletes(mappedData as Athlete[]);
       }
     };
-    fetchAthletes();
+    fetchInitialData();
   }, []);
   
   // Local state for batch input
@@ -116,8 +151,6 @@ export function Assessments() {
       window.removeEventListener('keydown', handleEsc);
     };
   }, []);
-
-  const divisions = ['All', 'U-13', 'U-15', 'U-17', 'U-19', 'Senior'];
 
   const filteredAthletes = athletes.filter(a => {
     const matchesSearch = a.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -146,56 +179,23 @@ export function Assessments() {
       const current = prev[athleteId] || {};
       const updated = { ...current, [field]: value };
       
-      // Auto-calculate logic (keeping current behavior)
-      if (['bicep', 'tricep', 'subscapula', 'abdominal'].includes(field as string)) {
-        const b = Number(updated.bicep || 0);
-        const t = Number(updated.tricep || 0);
-        const sc = Number(updated.subscapula || 0);
-        const a = Number(updated.abdominal || 0);
-        updated.total = b + t + sc + a;
-        
-        const athlete = athletes.find(a => a.id === athleteId);
-        if (athlete && updated.total >= 15) {
-          const bf = getBFFromTable(updated.total, athlete.gender as any);
-          if (bf !== null) {
-            updated.bf_caliper = bf;
-          }
-        } else {
-          updated.bf_caliper = Number(((updated.total * 0.25) + 2).toFixed(1));
-        }
-      }
+      const athlete = athletes.find(a => a.id === athleteId);
+      if (!athlete) return prev;
+      
+      const calculatedData = calculateAssessmentMetrics(updated, athlete.gender as string);
 
-      if (field === 'weight' || field === 'bf_caliper') {
-        const weight = Number(updated.weight || 0);
-        const bf = Number(updated.bf_caliper || 0);
-        if (weight > 0) {
-          updated.fm = Number((weight * (bf / 100)).toFixed(2));
-          updated.lbm = Number((weight - updated.fm).toFixed(2));
-        }
-      }
-
-      return { ...prev, [athleteId]: updated };
+      return { ...prev, [athleteId]: calculatedData };
     });
-
-    // 2. Auto-save functionality (debounced for performance, here directly for safe implementation)
-    // In a production app, you'd use a debounce hook, 
-    // but here we ensure consistency by immediately pushing to Supabase.
-    try {
-      // NOTE: This assumes we are saving one field change at a time, 
-      // or at least trying to keep state in sync as requested.
-      // Since `batchData` is used by handleSaveAll, 
-      // keeping it updated is the first step to persistence.
-      // We will leave the final bulk storage to handleSaveAll as designed,
-      // but the crucial fix is ensuring handleInputChange doesn't lose state 
-      // when React unmounts components for navigation.
-    } catch (error) {
-      console.error('Error in input change:', error);
-    }
   };
 
   const handleSaveAll = async () => {
     setIsSaving(true);
     setSaveStatus('idle');
+
+    // Capture the absolute local time of the user's browser down to the minute to avoid UTC mismatches
+    const localNow = new Date();
+    const tzOffset = localNow.getTimezoneOffset() * 60000;
+    const localIsoString = (new Date(localNow.getTime() - tzOffset)).toISOString().slice(0, -1) + '+07:00'; 
 
     try {
       const entries = Object.entries(batchData).filter(([_, data]) => (data as any).weight);
@@ -205,6 +205,7 @@ export function Assessments() {
         const assessment = {
           athlete_id: athleteId,
           date: assessmentDate,
+          created_at: localIsoString, // Force absolute local time stamp
           bf_in_body: Number(newData.bf_in_body || 0),
           bicep: Number(newData.bicep || 0),
           tricep: Number(newData.tricep || 0),
@@ -412,7 +413,7 @@ export function Assessments() {
             onChange={(e) => setSelectedDivision(e.target.value)}
             className="w-full bg-white border border-slate-200 rounded-2xl pl-12 pr-4 py-3.5 text-sm font-bold focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all shadow-sm appearance-none"
           >
-            {divisions.map(d => <option key={d} value={d}>{d}</option>)}
+            {categories.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
         </div>
 

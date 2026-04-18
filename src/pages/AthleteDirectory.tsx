@@ -21,14 +21,21 @@ export function AthleteDirectory({ onSelectAthlete }: AthleteDirectoryProps) {
   const { categories, setCategories, isLoading: isCategoriesLoading, refreshCategories, deleteCategory } = useCategories();
   
   const fetchAthletes = async () => {
+    // Add a cache-busting timestamp to the query by selecting only necessary fields
+    // and using Supabase's native order for the foreign table
     const { data, error } = await supabase
       .from('athletes')
       .select(`
         *,
         categories:category_id (name),
-        assessment_history:assessments(*)
+        assessment_history:assessments (
+          *,
+          created_at,
+          athlete_id
+        )
       `)
-      .order('name');
+      .order('name')
+      .order('created_at', { foreignTable: 'assessment_history', ascending: false });
 
     if (error) {
       console.error('Error fetching athletes:', error);
@@ -38,9 +45,8 @@ export function AthleteDirectory({ onSelectAthlete }: AthleteDirectoryProps) {
         category_name: (Array.isArray(a.categories) 
           ? a.categories[0]?.name 
           : a.categories?.name) || 'Unknown',
-        assessment_history: (a.assessment_history || []).sort((x: any, y: any) => 
-          new Date(y.date).getTime() - new Date(x.date).getTime()
-        )
+        // Already sorted server-side, but keep as array if needed
+        assessment_history: a.assessment_history || []
       }));
       setAthletesList(mappedData as Athlete[]);
     }
@@ -48,6 +54,24 @@ export function AthleteDirectory({ onSelectAthlete }: AthleteDirectoryProps) {
 
   useEffect(() => {
     fetchAthletes();
+
+    const channel = supabase
+      .channel('athlete-directory-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'assessments' },
+        fetchAthletes
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'athletes' },
+        fetchAthletes
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
   
   const [selectedCategory, setSelectedCategory] = useState<string | 'All'>('All');
@@ -142,12 +166,18 @@ export function AthleteDirectory({ onSelectAthlete }: AthleteDirectoryProps) {
 
       const createdAthlete = athleteData[0];
 
+      // Capture the absolute local time of the user's browser down to the minute to avoid UTC mismatches
+      const localNow = new Date();
+      const tzOffset = localNow.getTimezoneOffset() * 60000;
+      const localIsoString = (new Date(localNow.getTime() - tzOffset)).toISOString().slice(0, -1) + '+07:00'; 
+
       // 2. Insert initial assessment
       const { error: assessmentError } = await supabase
         .from('assessments')
         .insert([{
           athlete_id: createdAthlete.id,
           date: initialAssessment.date,
+          created_at: localIsoString, // Force absolute local time stamp
           weight: initialAssessment.weight,
           bf_caliper: initialAssessment.bf_caliper,
           bf_in_body: initialAssessment.bf_in_body,
@@ -735,6 +765,10 @@ function AthleteCard({ athlete, viewMode, onClick, onDelete }: AthleteCardProps)
   const lastAssessment = athlete.assessment_history?.[0];
   const lastUpdateDate = lastAssessment?.date || 'N/A';
   
+  const displayWeight = lastAssessment?.weight || athlete.weight || 0;
+  const displayBfCaliper = lastAssessment?.bf_caliper || athlete.bf_caliper || 0;
+  const displayBfInbody = lastAssessment?.bf_in_body || athlete.bf_in_body || 0;
+  
   // Calculate progress percentages (closeness to target)
   const calculateCloseness = (current: number, target: number) => {
     if (!target || target === 0) return 100;
@@ -746,10 +780,43 @@ function AthleteCard({ athlete, viewMode, onClick, onDelete }: AthleteCardProps)
     return Math.round(percentage);
   };
 
-  const weightProgress = calculateCloseness(athlete.weight || 0, athlete.target_weight);
-  const currentBF = (athlete.bf_caliper && athlete.bf_caliper > 0) ? athlete.bf_caliper : (athlete.bf_in_body || 0);
+  const weightProgress = calculateCloseness(displayWeight, athlete.target_weight);
+  const currentBF = (displayBfCaliper > 0) ? displayBfCaliper : displayBfInbody;
   const bfProgress = calculateCloseness(currentBF, athlete.target_body_fat);
   const totalProgress = Math.round((weightProgress + bfProgress) / 2);
+
+  const getFormatDate = (createdAt?: string, backupDateStr?: string) => {
+    const timestampToUse = createdAt || backupDateStr;
+    if (!timestampToUse || timestampToUse === 'N/A') return 'N/A';
+    
+    try {
+      // Supabase created_at is strictly UTC if it ends with Z.
+      // E.g., '2026-04-17T14:32:00.000Z'
+      const dateVal = timestampToUse.length === 10 ? `${timestampToUse}T00:00:00Z` : timestampToUse;
+      const d = new Date(dateVal);
+      
+      if (isNaN(d.getTime())) return 'N/A';
+
+      // Manual UTC+7 offset calculation for absolute certainty bypassing browser locale quirks
+      // Get the UTC time in milliseconds, then add 7 hours (7 * 60 * 60 * 1000)
+      const offsetMs = 7 * 60 * 60 * 1000;
+      const wibDate = new Date(d.getTime() + offsetMs);
+
+      const day = wibDate.getUTCDate();
+      const months = ['januari', 'februari', 'maret', 'april', 'mei', 'juni', 'juli', 'agustus', 'september', 'oktober', 'november', 'desember'];
+      const month = months[wibDate.getUTCMonth()];
+      const year = wibDate.getUTCFullYear();
+      
+      // Get hours and minutes, pad with leading zeros if needed
+      const hours = String(wibDate.getUTCHours()).padStart(2, '0');
+      const minutes = String(wibDate.getUTCMinutes()).padStart(2, '0');
+
+      // Final desired output: "17 oktober 2026 jam 10.30 wib"
+      return `${day} ${month} ${year} jam ${hours}.${minutes} wib`.toUpperCase();
+    } catch(e) {
+      return 'N/A';
+    }
+  };
 
   if (viewMode === 'list') {
     return (
@@ -771,11 +838,11 @@ function AthleteCard({ athlete, viewMode, onClick, onDelete }: AthleteCardProps)
           <div>
             <h3 className="text-slate-900 font-bold text-sm group-hover:text-brand-red transition-colors">{athlete.name}</h3>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[9px] font-black text-brand-red uppercase tracking-widest">BB: {athlete.weight}kg</span>
+              <span className="text-[9px] font-black text-brand-red uppercase tracking-widest">BB: {displayWeight}kg</span>
               <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">BF (K): {athlete.bf_caliper || 0}%</span>
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">BF (K): {displayBfCaliper}%</span>
               <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
-              <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">IB: {athlete.bf_in_body || 0}%</span>
+              <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">IB: {displayBfInbody}%</span>
             </div>
           </div>
         </div>
@@ -875,7 +942,7 @@ function AthleteCard({ athlete, viewMode, onClick, onDelete }: AthleteCardProps)
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Berat Badan</span>
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-lg font-black text-slate-900">{athlete.weight}</span>
+                <span className="text-lg font-black text-slate-900">{displayWeight}</span>
                 <span className="text-[10px] font-bold text-slate-400">kg</span>
               </div>
               <div className="space-y-1.5">
@@ -900,12 +967,12 @@ function AthleteCard({ athlete, viewMode, onClick, onDelete }: AthleteCardProps)
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Body Fat (K)</span>
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-lg font-black text-brand-red">{athlete.bf_caliper || 0}</span>
+                <span className="text-lg font-black text-brand-red">{displayBfCaliper}</span>
                 <span className="text-[10px] font-bold text-slate-400">%</span>
               </div>
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">InBody</span>
-                <span className="text-[10px] font-black text-blue-600">{athlete.bf_in_body || 0}%</span>
+                <span className="text-[10px] font-black text-blue-600">{displayBfInbody}%</span>
               </div>
               <div className="space-y-1.5">
                 <div className="flex justify-between text-[8px] font-black uppercase tracking-widest">
@@ -933,8 +1000,8 @@ function AthleteCard({ athlete, viewMode, onClick, onDelete }: AthleteCardProps)
             <div className="flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full bg-slate-200"></div>
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                Update: <span className="text-slate-900">
-                  {lastAssessment ? formatDistanceToNow(new Date(lastAssessment.date), { addSuffix: true, locale: id }).toUpperCase() : 'N/A'}
+                Update: <span className="text-slate-900 uppercase">
+                  {getFormatDate(lastAssessment?.created_at, lastUpdateDate)}
                 </span>
               </span>
             </div>
