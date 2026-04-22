@@ -149,7 +149,8 @@ export function Dashboard() {
 
   // Category Summary
   const categorySummary = categories.map(cat => {
-    const divAthletes = targetStatus.filter(a => a.category_id === cat.id);
+    // Match by name to avoid nested object/ID mismatch from Supabase joins
+    const divAthletes = targetStatus.filter(a => a.category_name === cat.name);
     const reachedCount = divAthletes.filter(a => a.reached).length;
     const percentage = divAthletes.length > 0 ? Math.round((reachedCount / divAthletes.length) * 100) : 0;
     return { name: cat.name, percentage, total: divAthletes.length, reached: reachedCount };
@@ -278,9 +279,9 @@ export function Dashboard() {
           variants={item}
           className="lg:col-span-2 bg-white rounded-[2rem] p-6 border border-slate-200 shadow-sm space-y-6"
         >
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20 shrink-0">
                 <PieChartIcon className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -314,13 +315,13 @@ export function Dashboard() {
               </div>
 
               {/* Status Badges */}
-              <div className="flex items-center p-1 bg-slate-100/50 rounded-2xl border border-slate-200/50">
-                <div className="px-4 py-2 rounded-xl bg-white shadow-sm border border-slate-200/50 flex items-center gap-2">
+              <div className="flex items-center gap-4 px-2">
+                <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
                   <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Tercapai</span>
                   <span className="text-xs font-black text-emerald-600">{reachedAthletes.length}</span>
                 </div>
-                <div className="px-4 py-2 flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-brand-red"></div>
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Proses</span>
                   <span className="text-xs font-black text-brand-red">{inProgressAthletes.length}</span>

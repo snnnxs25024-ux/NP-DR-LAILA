@@ -40,15 +40,12 @@ export function Login({ onLogin }: LoginProps) {
             transition={{ type: "spring", duration: 1.5, bounce: 0.4 }}
             className="relative group mb-8 md:mb-12"
           >
-            {/* Pulsing glow behind the logo */}
-            <div className="absolute -inset-8 bg-gradient-to-br from-brand-red to-rose-600 rounded-full blur-2xl opacity-40 group-hover:opacity-60 transition duration-1000 animate-pulse"></div>
-            
-            {/* Glassmorphism Logo Container */}
-            <div className="relative w-48 h-48 md:w-64 md:h-64 rounded-[2.5rem] bg-white/5 backdrop-blur-xl border border-white/10 flex items-center justify-center shadow-2xl overflow-hidden p-8 aspect-square">
+            {/* White Solid Container for Logo */}
+            <div className="relative w-48 h-48 md:w-64 md:h-64 rounded-[2.5rem] bg-white border border-slate-100 flex items-center justify-center shadow-lg overflow-hidden p-8 aspect-square">
               <img 
                 src="https://i.imgur.com/qgCJK08.png" 
                 alt="Logo DL" 
-                className="w-full h-full object-contain drop-shadow-2xl filter brightness-110" 
+                className="w-full h-full object-contain filter brightness-110" 
               />
             </div>
           </motion.div>

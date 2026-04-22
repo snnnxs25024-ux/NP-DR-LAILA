@@ -72,9 +72,9 @@ export const generateAssessmentPDF = (
   // Table Spacer
   const tableSpace = 70;
   
-  // Table
-  const tableData = assessments.map(entry => [
-    entry.date,
+  // Table Data Formatted
+  const tableData = [...assessments].reverse().map(entry => [
+    entry.date.split('-').reverse().join('-'),
     `${entry.bf_in_body}%`,
     entry.bicep,
     entry.tricep,

@@ -80,7 +80,99 @@ export function Assessments() {
   const [categories, setCategories] = useState<string[]>(['All']);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDivision, setSelectedDivision] = useState<string>('All');
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d.toISOString().split('T')[0];
+  });
+  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [assessmentDate, setAssessmentDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Download Report Excel
+  const downloadReportExcel = () => {
+    const wb = XLSX.utils.book_new();
+    
+    // Group filtered history by category
+    const categoryGroups: Record<string, any[]> = {};
+    
+    athletes.forEach(athlete => {
+      // Apply search and category filter for the report too
+      const matchesSearch = athlete.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesDivision = selectedDivision === 'All' || athlete.category_name === selectedDivision;
+      
+      if (!matchesSearch || !matchesDivision) return;
+      
+      const categoryName = athlete.category_name;
+      if (!categoryGroups[categoryName]) {
+        categoryGroups[categoryName] = [];
+      }
+      
+      const historyInRange = (athlete.assessment_history || []).filter((assessment: any) => {
+        return assessment.date >= startDate && assessment.date <= endDate;
+      });
+
+      historyInRange.forEach((assessment: any) => {
+        categoryGroups[categoryName].push({
+          'Tanggal': assessment.date,
+          'ID Atlet': athlete.id,
+          'Nama Atlet': athlete.name,
+          'BF% InBody': assessment.bf_in_body || 0,
+          'Bicep (mm)': assessment.bicep || 0,
+          'Tricep (mm)': assessment.tricep || 0,
+          'Subscapula (mm)': assessment.subscapula || 0,
+          'Abdominal (mm)': assessment.abdominal || 0,
+          'TOT (mm)': assessment.total || 0,
+          'BF% Caliper (%)': assessment.bf_caliper || 0,
+          'BB (kg)': assessment.weight || 0,
+          'LBM (kg)': assessment.lbm || 0,
+          'FM (kg)': assessment.fm || 0,
+          'Catatan': assessment.notes || ''
+        });
+      });
+    });
+
+    if (Object.keys(categoryGroups).length === 0) {
+      alert("Tidak ada data asesmen pada rentang waktu tersebut.");
+      return;
+    }
+
+    Object.entries(categoryGroups).forEach(([cat, data]) => {
+      // Skip empty categories
+      if (data.length === 0) return;
+      
+      // Sort by date ascending (oldest first)
+      data.sort((a, b) => new Date(a['Tanggal']).getTime() - new Date(b['Tanggal']).getTime());
+      
+      // Format date to DD-MM-YYYY after sorting
+      data.forEach(item => {
+        item['Tanggal'] = item['Tanggal'].split('-').reverse().join('-');
+      });
+      
+      const ws = XLSX.utils.json_to_sheet(data);
+      
+      // Auto column widths
+      const wscols = [
+        {wch: 12}, // Tanggal
+        {wch: 10}, // ID
+        {wch: 25}, // Nama
+        {wch: 12}, {wch: 10}, {wch: 10}, {wch: 15}, {wch: 15}, {wch: 10}, {wch: 15}, {wch: 10}, {wch: 10}, {wch: 10}, {wch: 25}
+      ];
+      ws['!cols'] = wscols;
+
+      // Ensure sheet name is valid and short enough
+      let safeSheetName = cat.replace(/[\\\/\?\*\[\]]/g, '').substring(0, 31);
+      if (safeSheetName === '') safeSheetName = 'Data';
+      
+      XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
+    });
+
+    if (wb.SheetNames.length === 0) {
+      alert("Tidak ada data asesmen pada rentang waktu tersebut untuk kategori yang dipilih.");
+      return;
+    }
+
+    XLSX.writeFile(wb, `Laporan_Rekap_Klinis_${startDate}_sd_${endDate}.xlsx`);
+  };
   
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -136,7 +228,7 @@ export function Assessments() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [focusedAthleteId, setFocusedAthleteId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'input' | 'reference' | 'history'>('input');
+  const [activeTab, setActiveTab] = useState<'input' | 'reference' | 'laporan'>('input');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -417,46 +509,72 @@ export function Assessments() {
           </select>
         </div>
 
-        <div className="relative">
-          <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input 
-            type="date" 
-            value={assessmentDate}
-            onChange={(e) => setAssessmentDate(e.target.value)}
-            className="w-full bg-white border border-slate-200 rounded-2xl pl-12 pr-4 py-3.5 text-sm font-bold focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all shadow-sm"
-          />
-        </div>
+        {activeTab === 'laporan' ? (
+          <div className="flex bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+            <div className="relative flex-1 border-r border-slate-100">
+              <input 
+                type="date" 
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                title="Mulai Tanggal"
+                className="w-full bg-transparent pl-3 pr-2 py-3.5 text-xs font-bold focus:ring-2 focus:ring-slate-900/5 outline-none transition-all text-slate-700"
+              />
+            </div>
+            <div className="relative flex-1">
+              <input 
+                type="date" 
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                title="Sampai Tanggal"
+                className="w-full bg-transparent pl-3 pr-2 py-3.5 text-xs font-bold focus:ring-2 focus:ring-slate-900/5 outline-none transition-all text-slate-700"
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="relative flex-1">
+            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input 
+              type="date" 
+              value={assessmentDate}
+              onChange={(e) => setAssessmentDate(e.target.value)}
+              className="w-full bg-white border border-slate-200 rounded-2xl pl-12 pr-4 py-3.5 text-sm font-bold focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all shadow-sm"
+            />
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-6 mb-6 border-b border-slate-200 px-2">
-        <button
-          onClick={() => setActiveTab('input')}
-          className={cn(
-            "pb-3 text-xs font-black uppercase tracking-widest transition-all border-b-2 relative",
-            activeTab === 'input' ? "border-brand-red text-brand-red" : "border-transparent text-slate-400 hover:text-slate-600"
-          )}
-        >
-          Input Data
-        </button>
-        <button
-          onClick={() => setActiveTab('reference')}
-          className={cn(
-            "pb-3 text-xs font-black uppercase tracking-widest transition-all border-b-2 relative",
-            activeTab === 'reference' ? "border-brand-red text-brand-red" : "border-transparent text-slate-400 hover:text-slate-600"
-          )}
-        >
-          Referensi Body Fat
-        </button>
-        <button
-          onClick={() => setActiveTab('history')}
-          className={cn(
-            "pb-3 text-xs font-black uppercase tracking-widest transition-all border-b-2 relative",
-            activeTab === 'history' ? "border-brand-red text-brand-red" : "border-transparent text-slate-400 hover:text-slate-600"
-          )}
-        >
-          History
-        </button>
+      <div className="flex items-center gap-6 mb-6 border-b border-slate-200 px-2 justify-between">
+        <div className="flex items-center gap-6">
+          <button
+            onClick={() => setActiveTab('input')}
+            className={cn(
+              "pb-3 text-xs font-black uppercase tracking-widest transition-all border-b-2 relative",
+              activeTab === 'input' ? "border-brand-red text-brand-red" : "border-transparent text-slate-400 hover:text-slate-600"
+            )}
+          >
+            Input Data
+          </button>
+          <button
+            onClick={() => setActiveTab('reference')}
+            className={cn(
+              "pb-3 text-xs font-black uppercase tracking-widest transition-all border-b-2 relative",
+              activeTab === 'reference' ? "border-brand-red text-brand-red" : "border-transparent text-slate-400 hover:text-slate-600"
+            )}
+          >
+            Referensi Body Fat
+          </button>
+          <button
+            onClick={() => setActiveTab('laporan')}
+            className={cn(
+              "pb-3 text-xs font-black uppercase tracking-widest transition-all border-b-2 relative flex items-center gap-2",
+              activeTab === 'laporan' ? "border-brand-red text-brand-red" : "border-transparent text-slate-400 hover:text-slate-600"
+            )}
+          >
+            History
+            {activeTab === 'laporan' && <span className="w-2 h-2 bg-brand-red rounded-full animate-pulse" />}
+          </button>
+        </div>
       </div>
 
       {/* Main Content Area */}
@@ -763,32 +881,67 @@ export function Assessments() {
           )}
         </AnimatePresence>
         </div>
-      ) : activeTab === 'history' ? (
+      ) : activeTab === 'laporan' ? (
         <div className="flex-1 bg-white border border-slate-200 shadow-sm overflow-hidden flex flex-col rounded-3xl p-6">
-          <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-4">Riwayat Asesmen</h2>
-          <div className="overflow-x-auto custom-scrollbar">
+          <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-4">Laporan Rekap Klinis</h2>
+          <div className="overflow-x-auto custom-scrollbar flex-1 relative">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100">
-                  <th className="p-3 text-xs font-black text-slate-500 uppercase tracking-widest">Nama Atlet</th>
-                  <th className="p-3 text-xs font-black text-slate-500 uppercase tracking-widest">Tanggal</th>
-                  <th className="p-3 text-xs font-black text-slate-500 uppercase tracking-widest">BB (kg)</th>
-                  <th className="p-3 text-xs font-black text-slate-500 uppercase tracking-widest">BF% Cal</th>
-                  <th className="p-3 text-xs font-black text-slate-500 uppercase tracking-widest">TOT</th>
+                  <th className="px-4 py-3 text-xs font-black text-slate-900 uppercase tracking-widest sticky left-0 bg-slate-50 z-10 w-48">Tanggal</th>
+                  <th className="px-4 py-3 text-xs font-black text-slate-900 uppercase tracking-widest sticky left-48 bg-slate-50 z-10">Atlet</th>
+                  <th className="px-2 py-3 text-xs font-black text-slate-900 uppercase tracking-widest text-center">Kate.</th>
+                  <th className="px-2 py-3 text-xs font-black text-slate-900 uppercase tracking-widest text-center">BF% InBody</th>
+                  <th className="px-2 py-3 text-xs font-black text-slate-900 uppercase tracking-widest text-center">Bicep</th>
+                  <th className="px-2 py-3 text-xs font-black text-slate-900 uppercase tracking-widest text-center">Tricep</th>
+                  <th className="px-2 py-3 text-xs font-black text-slate-900 uppercase tracking-widest text-center">Subscap</th>
+                  <th className="px-2 py-3 text-xs font-black text-slate-900 uppercase tracking-widest text-center">Abdom</th>
+                  <th className="px-2 py-3 text-xs font-black text-slate-900 uppercase tracking-widest text-center bg-slate-100/50">TOT</th>
+                  <th className="px-2 py-3 text-xs font-black text-brand-red uppercase tracking-widest text-center bg-slate-100/50">BF% Cal</th>
+                  <th className="px-2 py-3 text-xs font-black text-slate-900 uppercase tracking-widest text-center">BB (kg)</th>
+                  <th className="px-2 py-3 text-xs font-black text-emerald-600 uppercase tracking-widest text-center bg-slate-100/50">LBM</th>
+                  <th className="px-2 py-3 text-xs font-black text-orange-600 uppercase tracking-widest text-center bg-slate-100/50">FM</th>
+                  <th className="px-4 py-3 text-xs font-black text-slate-900 uppercase tracking-widest">Catatan</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {athletes.flatMap(athlete => 
-                  (athlete.assessment_history || []).map((assessment, idx) => (
-                    <tr key={`${athlete.id}-${idx}`} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-3 text-sm font-bold text-slate-900">{athlete.name}</td>
-                      <td className="p-3 text-sm font-medium text-slate-600">{assessment.date}</td>
-                      <td className="p-3 text-sm font-medium text-slate-600">{assessment.weight}</td>
-                      <td className="p-3 text-sm font-medium text-slate-600">{assessment.bf_caliper}%</td>
-                      <td className="p-3 text-sm font-medium text-slate-600">{assessment.total}</td>
-                    </tr>
-                  ))
-                )}
+                {athletes.flatMap(athlete => {
+                  const matchesSearch = athlete.name.toLowerCase().includes(searchTerm.toLowerCase());
+                  const matchesDivision = selectedDivision === 'All' || athlete.category_name === selectedDivision;
+                  
+                  if (!matchesSearch || !matchesDivision) return [];
+
+                  return (athlete.assessment_history || [])
+                    .filter((assessment: any) => assessment.date >= startDate && assessment.date <= endDate)
+                    .map((assessment: any, idx: number) => (
+                      <tr key={`${athlete.id}-${assessment.id || idx}`} className="hover:bg-slate-50 transition-colors group">
+                        <td className="px-4 py-3 text-xs font-bold text-slate-500 sticky left-0 bg-white group-hover:bg-slate-50 z-10">{assessment.date}</td>
+                        <td className="px-4 py-3 text-sm font-black text-slate-900 sticky left-48 bg-white group-hover:bg-slate-50 z-10 w-64 min-w-[16rem]">
+                          <div className="flex items-center gap-3">
+                            <img src={athlete.image_url} alt="" className="w-6 h-6 rounded-md object-cover" />
+                            <span className="truncate">{athlete.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-2 py-3 text-[10px] font-bold text-slate-400 uppercase text-center">{athlete.category_name}</td>
+                        <td className="px-2 py-3 text-xs font-bold text-slate-600 text-center">{assessment.bf_in_body || '-'}</td>
+                        <td className="px-2 py-3 text-xs font-medium text-slate-600 text-center">{assessment.bicep || '-'}</td>
+                        <td className="px-2 py-3 text-xs font-medium text-slate-600 text-center">{assessment.tricep || '-'}</td>
+                        <td className="px-2 py-3 text-xs font-medium text-slate-600 text-center">{assessment.subscapula || '-'}</td>
+                        <td className="px-2 py-3 text-xs font-medium text-slate-600 text-center">{assessment.abdominal || '-'}</td>
+                        <td className="px-2 py-3 text-xs font-black text-slate-900 text-center bg-slate-50/50">{assessment.total || '-'}</td>
+                        <td className="px-2 py-3 text-xs font-black text-brand-red text-center bg-slate-50/50">{assessment.bf_caliper ? `${assessment.bf_caliper}%` : '-'}</td>
+                        <td className="px-2 py-3 text-xs font-bold text-slate-900 text-center">{assessment.weight || '-'}</td>
+                        <td className="px-2 py-3 text-xs font-black text-emerald-600 text-center bg-slate-50/50">{assessment.lbm ? `${assessment.lbm} kg` : '-'}</td>
+                        <td className="px-2 py-3 text-xs font-black text-orange-600 text-center bg-slate-50/50">{assessment.fm ? `${assessment.fm} kg` : '-'}</td>
+                        <td className="px-4 py-3 text-xs font-medium text-slate-500 italic max-w-[12rem] truncate">{assessment.notes || '-'}</td>
+                      </tr>
+                    ));
+                }).sort((a, b) => {
+                  // Sort extracted rows by date descending
+                  const dateA = a.props.children[0].props.children;
+                  const dateB = b.props.children[0].props.children;
+                  return new Date(dateB).getTime() - new Date(dateA).getTime();
+                })}
               </tbody>
             </table>
           </div>

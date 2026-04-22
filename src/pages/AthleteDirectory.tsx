@@ -624,20 +624,35 @@ export function AthleteDirectory({ onSelectAthlete }: AthleteDirectoryProps) {
               <span className="text-[10px] font-bold text-brand-red uppercase tracking-widest">{selectedCategory === 'All' ? 'Semua' : selectedCategory}</span>
             </div>
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 -mx-2 px-2">
-              {['All', ...categories.map(c => c.name)].map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={cn(
-                    "px-4 py-2 rounded-xl text-xs font-bold transition-all border whitespace-nowrap",
-                    selectedCategory === cat 
-                      ? "bg-brand-red text-white border-brand-red shadow-lg shadow-brand-red/20" 
-                      : "bg-slate-50 text-slate-500 hover:text-slate-900 border-slate-200 hover:border-slate-300"
-                  )}
-                >
-                  {cat === 'All' ? 'Semua' : cat}
-                </button>
-              ))}
+              {['All', ...categories.map(c => c.name)].map(cat => {
+                // Calculate total athletes for "All" or match to specific category
+                const count = cat === 'All' 
+                  ? athletesList.length 
+                  : athletesList.filter(a => a.category_name === cat).length;
+                
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border whitespace-nowrap",
+                      selectedCategory === cat 
+                        ? "bg-brand-red text-white border-brand-red shadow-lg shadow-brand-red/20" 
+                        : "bg-slate-50 text-slate-500 hover:text-slate-900 border-slate-200 hover:border-slate-300"
+                    )}
+                  >
+                    <span>{cat === 'All' ? 'Semua' : cat}</span>
+                    <span className={cn(
+                      "px-1.5 py-0.5 rounded-md text-[10px]",
+                      selectedCategory === cat 
+                        ? "bg-white/20 text-white" 
+                        : "bg-slate-200 text-slate-500"
+                    )}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>

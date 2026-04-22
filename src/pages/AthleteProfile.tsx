@@ -111,7 +111,7 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
     } else {
       // Fetch related data
       const [assessmentsRes, notesRes, injuriesRes] = await Promise.all([
-        supabase.from('assessments').select('*').eq('athlete_id', athleteId).order('created_at', { ascending: false }),
+        supabase.from('assessments').select('*').eq('athlete_id', athleteId).order('date', { ascending: false }),
         supabase.from('notes').select('*').eq('athlete_id', athleteId).order('date', { ascending: false }),
         supabase.from('injuries').select('*').eq('athlete_id', athleteId).order('date', { ascending: false })
       ]);
@@ -1213,10 +1213,10 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {(athlete.assessment_history || []).map((entry, index) => (
+                    {[...(athlete.assessment_history || [])].reverse().map((entry, index) => (
                       <tr key={index} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="py-4 px-4 text-xs font-bold text-slate-400 border border-slate-100">{index + 1}</td>
-                        <td className="py-4 px-4 text-xs font-black text-slate-900 border border-slate-100">{entry.date}</td>
+                        <td className="py-4 px-4 text-xs font-black text-slate-900 border border-slate-100">{entry.date.split('-').reverse().join('-')}</td>
                         <td className="py-4 px-4 text-xs font-black text-blue-600 border border-slate-100">{entry.bf_in_body}%</td>
                         <td className="py-4 px-2 text-xs font-bold text-slate-600 text-center border border-slate-100">{entry.bicep}</td>
                         <td className="py-4 px-2 text-xs font-bold text-slate-600 text-center border border-slate-100">{entry.tricep}</td>
@@ -1682,9 +1682,9 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {(athlete.assessment_history || []).map((entry, idx) => (
+                    {[...(athlete.assessment_history || [])].reverse().map((entry, idx) => (
                       <tr key={idx} className="hover:bg-blue-50/30 transition-colors even:bg-slate-50/50">
-                        <td className="px-6 py-4 text-xs font-black text-slate-900">{entry.date}</td>
+                        <td className="px-6 py-4 text-xs font-black text-slate-900">{entry.date.split('-').reverse().join('-')}</td>
                         <td className="px-4 py-4 text-center text-xs font-bold text-blue-600">{entry.bf_in_body}%</td>
                         <td className="px-4 py-4 text-center text-xs font-bold text-slate-600">{entry.bicep}</td>
                         <td className="px-4 py-4 text-center text-xs font-bold text-slate-600">{entry.tricep}</td>
