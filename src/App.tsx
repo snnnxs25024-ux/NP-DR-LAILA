@@ -14,6 +14,7 @@ const AthleteDirectory = lazy(() => import('./pages/AthleteDirectory').then(modu
 const AthleteProfile = lazy(() => import('./pages/AthleteProfile').then(module => ({ default: module.AthleteProfile })));
 const Assessments = lazy(() => import('./pages/Assessments').then(module => ({ default: module.Assessments })));
 const ClinicalRecap = lazy(() => import('./pages/ClinicalRecap').then(module => ({ default: module.ClinicalRecap })));
+const BulkExport = lazy(() => import('./pages/BulkExport'));
 
 // Loading Fallback UI
 const PageLoader = () => (
@@ -64,6 +65,8 @@ export default function App() {
         return <Assessments />;
       case 'clinical-recap':
         return <ClinicalRecap />;
+      case 'bulk-export':
+        return <BulkExport />;
       case 'profile':
         if (selectedAthleteId) {
           return <AthleteProfile athleteId={selectedAthleteId} onBack={handleBackToDirectory} />;

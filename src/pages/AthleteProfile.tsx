@@ -607,6 +607,23 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
     });
   };
 
+  const handlePrintReport = () => {
+    if (!athlete) return;
+    if (filteredHistory.length === 0) {
+      alert('Tidak ada data asesmen pada rentang waktu tersebut untuk dicetak.');
+      return;
+    }
+    try {
+      const doc = generateAssessmentPDF(athlete, filteredHistory, reportTitle, diffUpdate, diffGlobal);
+      doc.autoPrint();
+      const blobUrl = doc.output('bloburl');
+      window.open(blobUrl, '_blank');
+    } catch (error) {
+      console.error('Error printing report:', error);
+      alert('Gagal mempersiapkan dokumen cetak.');
+    }
+  };
+
   const handleShareReport = (type: 'pdf' | 'jpg' | 'whatsapp') => {
     if (!athlete) return;
     if (filteredHistory.length === 0) {
@@ -1318,7 +1335,7 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
             <span className="md:hidden">Kirim</span>
           </button>
           <button 
-            onClick={triggerPrint}
+            onClick={handlePrintReport}
             className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-900 text-xs font-bold border border-slate-200 transition-all shadow-sm"
           >
             <Printer className="w-4 h-4" />

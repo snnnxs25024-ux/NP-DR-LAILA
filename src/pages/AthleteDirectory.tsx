@@ -533,7 +533,8 @@ export function AthleteDirectory({ onSelectAthlete }: AthleteDirectoryProps) {
     <div className="p-4 md:p-6 space-y-4 md:space-y-6 h-full flex flex-col overflow-hidden custom-scrollbar">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl md:text-3xl font-black text-slate-900 tracking-tight">Direktori Atlet</h1>
+          <h1 className="text-2xl md:text-3xl font-black text-slate-900 uppercase tracking-tight">Direktori Atlet</h1>
+          <p className="text-[10px] md:text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">Manajemen profil dan status atlet</p>
         </div>
         
         <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">

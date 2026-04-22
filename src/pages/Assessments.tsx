@@ -443,8 +443,8 @@ export function Assessments() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6 mb-6 md:mb-8">
         <div>
-          <h1 className="text-2xl md:text-3xl font-black text-slate-900 uppercase tracking-tight">Batch Assessment</h1>
-          <p className="text-[10px] md:text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">Input data komposisi tubuh secara massal</p>
+          <h1 className="text-2xl md:text-3xl font-black text-slate-900 uppercase tracking-tight">Asesmen Kolektif</h1>
+          <p className="text-[10px] md:text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">Sistem rekapitulasi data komposisi tubuh kolektif</p>
         </div>
         
         <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-3">
@@ -453,13 +453,13 @@ export function Assessments() {
               onClick={downloadTemplate}
               className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 md:px-6 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
             >
-              <Download className="w-4 h-4" /> <span className="hidden md:inline">Download Template</span><span className="md:hidden">Template</span>
+              <Download className="w-4 h-4" /> <span className="hidden md:inline">Unduh Format</span><span className="md:hidden">Format</span>
             </button>
             <button 
               onClick={() => fileInputRef.current?.click()}
               className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 md:px-6 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
             >
-              <Upload className="w-4 h-4" /> <span className="hidden md:inline">Upload Excel (.xlsx)</span><span className="md:hidden">Upload</span>
+              <Upload className="w-4 h-4" /> <span className="hidden md:inline">Unggah Excel (.xlsx)</span><span className="md:hidden">Unggah</span>
             </button>
           </div>
           <input 
@@ -571,7 +571,7 @@ export function Assessments() {
               activeTab === 'laporan' ? "border-brand-red text-brand-red" : "border-transparent text-slate-400 hover:text-slate-600"
             )}
           >
-            History
+            Riwayat
             {activeTab === 'laporan' && <span className="w-2 h-2 bg-brand-red rounded-full animate-pulse" />}
           </button>
         </div>

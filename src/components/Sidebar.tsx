@@ -1,4 +1,4 @@
-import { Users, LogOut, ChevronRight, Menu, ChevronsLeft, LayoutDashboard, Activity, ClipboardList } from 'lucide-react';
+import { Users, LogOut, ChevronRight, Menu, ChevronsLeft, LayoutDashboard, Activity, ClipboardList, SendToBack } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState } from 'react';
@@ -15,8 +15,9 @@ export function Sidebar({ currentView, setCurrentView, onLogout }: SidebarProps)
   const navItems = [
     { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
     { id: 'directory', label: 'Atlet', icon: Users },
-    { id: 'assessments', label: 'Asesmen', icon: Activity },
-    { id: 'clinical-recap', label: 'Rekap Klinis', icon: ClipboardList },
+    { id: 'assessments', label: 'Assesmen', icon: Activity },
+    { id: 'clinical-recap', label: 'Rekap', icon: ClipboardList },
+    { id: 'bulk-export', label: 'Export', icon: SendToBack },
   ];
 
   return (
@@ -31,7 +32,7 @@ export function Sidebar({ currentView, setCurrentView, onLogout }: SidebarProps)
               key={item.id}
               onClick={() => setCurrentView(item.id)}
               className={cn(
-                "flex flex-col items-center justify-center p-2 rounded-xl min-w-[64px] transition-all",
+                "flex flex-col items-center justify-center p-1 sm:p-2 rounded-xl min-w-[50px] sm:min-w-[64px] transition-all",
                 isActive ? "text-brand-red" : "text-slate-400 hover:text-slate-600"
               )}
             >

@@ -218,7 +218,7 @@ export function Dashboard() {
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-xl md:text-3xl font-black text-slate-900 tracking-tight">Mission Control</h1>
+          <h1 className="text-xl md:text-3xl font-black text-slate-900 tracking-tight">Beranda Utama</h1>
           <p className="text-slate-500 text-xs md:text-sm mt-1 font-semibold flex items-center gap-2">
             Ringkasan Strategis Performa Atlet
             <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
@@ -236,7 +236,9 @@ export function Dashboard() {
           </button>
           <div className="flex-1 md:flex-none flex items-center justify-center gap-2 md:gap-3 bg-slate-900 border border-slate-800 px-4 md:px-5 py-2.5 rounded-xl shadow-lg shadow-slate-900/10">
             <Calendar className="w-4 h-4 text-rose-200" />
-            <span className="text-[10px] md:text-xs font-black text-white uppercase tracking-widest whitespace-nowrap">14 April 2026</span>
+            <span className="text-[10px] md:text-xs font-black text-white uppercase tracking-widest whitespace-nowrap">
+              {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </span>
           </div>
         </div>
       </div>
