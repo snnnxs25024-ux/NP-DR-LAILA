@@ -21,7 +21,7 @@ export default function BulkExport() {
   const [startDate, setStartDate] = useState<string>(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState<string>(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
 
-  const { categories, loading: categoriesLoading } = useCategories();
+  const { categories, isLoading: categoriesLoading } = useCategories();
 
   useEffect(() => {
     fetchData();
@@ -119,14 +119,14 @@ export default function BulkExport() {
       const historyAscending = [...(athlete.assessment_history || [])].reverse(); 
       // Reverse because we sorted it DESC when fetching, and calculateAssessmentMetrics might expect chronological or we can just pass the raw descending and it might work?
       // Wait, calculateAssessmentMetrics takes the original assessments array. The Assessments.tsx fetches DESC. 
-      const metrics = calculateAssessmentMetrics(historyInRange.length > 0 ? historyInRange : [], athlete.assessment_history || []);
+      const metrics = calculateAssessmentMetrics(historyInRange.length > 0 ? historyInRange[0] || {} : {}, athlete.gender as string) as any;
 
       return {
         athlete,
         assessments: historyInRange,
         title,
-        diffUpdate: metrics.diffUpdate,
-        diffGlobal: metrics.diffGlobal
+        diffUpdate: metrics.diffUpdate || null,
+        diffGlobal: metrics.diffGlobal || null
       };
     });
 

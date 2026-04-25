@@ -796,6 +796,12 @@ function AthleteCard({ athlete, viewMode, onClick, onDelete }: AthleteCardProps)
     return Math.round(percentage);
   };
 
+  const getIndicatorColor = (current: number, target: number) => {
+    if (!target || current === target) return 'bg-emerald-500';
+    if (current < target) return 'bg-blue-500';
+    return 'bg-amber-400';
+  };
+
   const weightProgress = calculateCloseness(displayWeight, athlete.target_weight);
   const currentBF = (displayBfCaliper > 0) ? displayBfCaliper : displayBfInbody;
   const bfProgress = calculateCloseness(currentBF, athlete.target_body_fat);
@@ -852,7 +858,13 @@ function AthleteCard({ athlete, viewMode, onClick, onDelete }: AthleteCardProps)
             )}></div>
           </div>
           <div>
-            <h3 className="text-slate-900 font-bold text-sm group-hover:text-brand-red transition-colors">{athlete.name}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-slate-900 font-bold text-sm group-hover:text-brand-red transition-colors">{athlete.name}</h3>
+              <div className="flex items-center gap-1 ml-1">
+                <div className={cn("w-2.5 h-2.5 rounded-sm shadow-sm border border-black/5", getIndicatorColor(displayWeight, athlete.target_weight))} title={`BB: ${displayWeight}kg | Target: ${athlete.target_weight}kg`} />
+                <div className={cn("w-2.5 h-2.5 rounded-sm shadow-sm border border-black/5", getIndicatorColor(currentBF, athlete.target_body_fat))} title={`BF: ${currentBF}% | Target: ${athlete.target_body_fat}%`} />
+              </div>
+            </div>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-[9px] font-black text-brand-red uppercase tracking-widest">BB: {displayWeight}kg</span>
               <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
@@ -928,10 +940,14 @@ function AthleteCard({ athlete, viewMode, onClick, onDelete }: AthleteCardProps)
                   athlete.status === 'AKTIF' ? "bg-green-500" : "bg-slate-400"
                 )}></div>
               </div>
-              <div>
+              <div className="flex items-center gap-2">
                 <h3 className="text-slate-900 font-black text-lg group-hover:text-brand-red transition-colors leading-tight tracking-tight">
                   {athlete.name}
                 </h3>
+                <div className="flex items-center gap-1.5 ml-1">
+                  <div className={cn("w-3.5 h-3.5 rounded-md shadow-sm border border-black/5", getIndicatorColor(displayWeight, athlete.target_weight))} title={`BB: ${displayWeight}kg | Target: ${athlete.target_weight}kg`} />
+                  <div className={cn("w-3.5 h-3.5 rounded-md shadow-sm border border-black/5", getIndicatorColor(currentBF, athlete.target_body_fat))} title={`BF: ${currentBF}% | Target: ${athlete.target_body_fat}%`} />
+                </div>
               </div>
             </div>
             

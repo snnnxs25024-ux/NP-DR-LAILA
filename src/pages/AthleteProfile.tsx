@@ -226,6 +226,9 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
     const tricep = Number(formData.get('tricep'));
     const subscapula = Number(formData.get('subscapula'));
     const abdominal = Number(formData.get('abdominal'));
+    const exercise_calories = formData.get('exercise_calories') ? Number(formData.get('exercise_calories')) : null;
+    const present_energy = formData.get('present_energy') ? Number(formData.get('present_energy')) : null;
+    const daily_calories = formData.get('daily_calories') ? Number(formData.get('daily_calories')) : null;
     const dateInput = formData.get('date') as string;
     const notes = formData.get('notes') as string;
     
@@ -267,6 +270,9 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
           bf_caliper,
           lbm,
           fm,
+          exercise_calories,
+          present_energy,
+          daily_calories,
           notes
         }]);
 
@@ -306,6 +312,9 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
     const tricep = Number(formData.get('tricep'));
     const subscapula = Number(formData.get('subscapula'));
     const abdominal = Number(formData.get('abdominal'));
+    const exercise_calories = formData.get('exercise_calories') ? Number(formData.get('exercise_calories')) : null;
+    const present_energy = formData.get('present_energy') ? Number(formData.get('present_energy')) : null;
+    const daily_calories = formData.get('daily_calories') ? Number(formData.get('daily_calories')) : null;
     const date = formData.get('date') as string;
     const notes = formData.get('notes') as string;
     
@@ -340,6 +349,9 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
               bf_caliper,
               lbm,
               fm,
+              exercise_calories,
+              present_energy,
+              daily_calories,
               notes
             })
             .eq('id', editingAssessment.id);
@@ -859,6 +871,25 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                 </div>
               </div>
 
+              {/* Seksi Kalori */}
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-black text-brand-red uppercase tracking-[0.2em]">Data Kalori (Opsional)</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Exercise Calories</label>
+                    <input name="exercise_calories" type="number" step="any" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Present Energy</label>
+                    <input name="present_energy" type="number" step="any" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Daily Calories</label>
+                    <input name="daily_calories" type="number" step="any" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
+                  </div>
+                </div>
+              </div>
+
               <div className="pt-4 flex gap-3">
                 <button type="button" onClick={() => setIsInputModalOpen(false)} className="flex-1 px-6 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-black uppercase tracking-widest transition-all">
                   Batal
@@ -991,6 +1022,24 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-slate-500 uppercase">Abdominal (A)</label>
                       <input name="abdominal" type="number" step="any" defaultValue={editingAssessment.abdominal} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black text-brand-red uppercase tracking-[0.2em]">Data Kalori (Opsional)</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Exercise Calories</label>
+                      <input name="exercise_calories" type="number" step="any" defaultValue={editingAssessment.exercise_calories} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Present Energy</label>
+                      <input name="present_energy" type="number" step="any" defaultValue={editingAssessment.present_energy} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Daily Calories</label>
+                      <input name="daily_calories" type="number" step="any" defaultValue={editingAssessment.daily_calories} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
                     </div>
                   </div>
                 </div>
@@ -1695,6 +1744,9 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                       <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">BB (kg)</th>
                       <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">LBM</th>
                       <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">FM</th>
+                      <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">Exercise Calories</th>
+                      <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">Present Energy</th>
+                      <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">Daily Calories</th>
                       <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">Aksi</th>
                     </tr>
                   </thead>
@@ -1712,6 +1764,9 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                         <td className="px-4 py-4 text-center text-xs font-black text-slate-900">{entry.weight}</td>
                         <td className="px-4 py-4 text-center text-xs font-black text-emerald-600 bg-slate-50/30">{entry.lbm}</td>
                         <td className="px-4 py-4 text-center text-xs font-black text-orange-600 bg-slate-50/30">{entry.fm}</td>
+                        <td className="px-4 py-4 text-center text-xs font-bold text-slate-600">{entry.exercise_calories || '-'}</td>
+                        <td className="px-4 py-4 text-center text-xs font-bold text-slate-600">{entry.present_energy || '-'}</td>
+                        <td className="px-4 py-4 text-center text-xs font-bold text-slate-600">{entry.daily_calories || '-'}</td>
                         <td className="px-4 py-4 text-center">
                           <div className="flex items-center justify-center gap-2">
                             <button 
@@ -1748,6 +1803,9 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                         <td className={cn("px-4 py-4 text-center text-xs font-black", diffUpdate.weight.raw === 0 ? "text-slate-400" : diffUpdate.weight.isNegative ? "text-emerald-600" : "text-brand-red")}>{diffUpdate.weight.value}</td>
                         <td className={cn("px-4 py-4 text-center text-xs font-black bg-slate-100/50", diffUpdate.lbm.raw === 0 ? "text-slate-400" : diffUpdate.lbm.isPositive ? "text-emerald-600" : "text-brand-red")}>{diffUpdate.lbm.value}</td>
                         <td className={cn("px-4 py-4 text-center text-xs font-black bg-slate-100/50", diffUpdate.fm.raw === 0 ? "text-slate-400" : diffUpdate.fm.isNegative ? "text-emerald-600" : "text-brand-red")}>{diffUpdate.fm.value}</td>
+                        <td className="px-4 py-4 text-center text-xs font-bold text-slate-300">-</td>
+                        <td className="px-4 py-4 text-center text-xs font-bold text-slate-300">-</td>
+                        <td className="px-4 py-4 text-center text-xs font-bold text-slate-300">-</td>
                         <td className="px-4 py-4"></td>
                       </tr>
                     )}
@@ -1764,6 +1822,9 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                         <td className={cn("px-4 py-4 text-center text-xs font-black", diffGlobal.weight.raw === 0 ? "text-slate-400" : diffGlobal.weight.isNegative ? "text-emerald-600" : "text-brand-red")}>{diffGlobal.weight.value}</td>
                         <td className={cn("px-4 py-4 text-center text-xs font-black bg-slate-100/50", diffGlobal.lbm.raw === 0 ? "text-slate-400" : diffGlobal.lbm.isPositive ? "text-emerald-600" : "text-brand-red")}>{diffGlobal.lbm.value}</td>
                         <td className={cn("px-4 py-4 text-center text-xs font-black bg-slate-100/50", diffGlobal.fm.raw === 0 ? "text-slate-400" : diffGlobal.fm.isNegative ? "text-emerald-600" : "text-brand-red")}>{diffGlobal.fm.value}</td>
+                        <td className="px-4 py-4 text-center text-xs font-bold text-slate-300">-</td>
+                        <td className="px-4 py-4 text-center text-xs font-bold text-slate-300">-</td>
+                        <td className="px-4 py-4 text-center text-xs font-bold text-slate-300">-</td>
                         <td className="px-4 py-4"></td>
                       </tr>
                     )}

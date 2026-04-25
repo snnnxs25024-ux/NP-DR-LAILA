@@ -13,6 +13,9 @@ export interface AssessmentEntry {
   total: number;
   lbm: number;
   fm: number;
+  exercise_calories?: number;
+  present_energy?: number;
+  daily_calories?: number;
   notes?: string;
 }
 
