@@ -91,7 +91,10 @@ export const generateAssessmentPDF = (
     `${entry.bf_caliper}%`,
     `${entry.weight} kg`,
     `${entry.lbm} kg`,
-    `${entry.fm} kg`
+    `${entry.fm} kg`,
+    entry.exercise_calories || '-',
+    entry.present_energy || '-',
+    entry.daily_calories || '-'
   ]);
 
   // Add Summary Rows if provided
@@ -104,7 +107,8 @@ export const generateAssessmentPDF = (
       { content: `${diffUpdate.bfCaliper.value}%`, styles: { fontStyle: 'bold', textColor: diffUpdate.bfCaliper.isNegative ? [5, 150, 105] : [225, 29, 72] } },
       { content: diffUpdate.weight.value, styles: { fontStyle: 'bold', textColor: diffUpdate.weight.isNegative ? [5, 150, 105] : [225, 29, 72] } },
       { content: diffUpdate.lbm.value, styles: { fontStyle: 'bold', textColor: diffUpdate.lbm.isPositive ? [5, 150, 105] : [225, 29, 72] } },
-      { content: diffUpdate.fm.value, styles: { fontStyle: 'bold', textColor: diffUpdate.fm.isNegative ? [5, 150, 105] : [225, 29, 72] } }
+      { content: diffUpdate.fm.value, styles: { fontStyle: 'bold', textColor: diffUpdate.fm.isNegative ? [5, 150, 105] : [225, 29, 72] } },
+      '-', '-', '-'
     ] as any);
   }
 
@@ -117,23 +121,24 @@ export const generateAssessmentPDF = (
       { content: `${diffGlobal.bfCaliper.value}%`, styles: { fontStyle: 'bold', textColor: diffGlobal.bfCaliper.isNegative ? [5, 150, 105] : [225, 29, 72] } },
       { content: diffGlobal.weight.value, styles: { fontStyle: 'bold', textColor: diffGlobal.weight.isNegative ? [5, 150, 105] : [225, 29, 72] } },
       { content: diffGlobal.lbm.value, styles: { fontStyle: 'bold', textColor: diffGlobal.lbm.isPositive ? [5, 150, 105] : [225, 29, 72] } },
-      { content: diffGlobal.fm.value, styles: { fontStyle: 'bold', textColor: diffGlobal.fm.isNegative ? [5, 150, 105] : [225, 29, 72] } }
+      { content: diffGlobal.fm.value, styles: { fontStyle: 'bold', textColor: diffGlobal.fm.isNegative ? [5, 150, 105] : [225, 29, 72] } },
+      '-', '-', '-'
     ] as any);
   }
   
   autoTable(doc, {
     startY: tableSpace,
-    head: [['TANGGAL', 'BF% INB', 'B', 'T', 'SC', 'A', 'TOT', 'BF% CAL', 'BB (KG)', 'LBM', 'FM']],
+    head: [['TANGGAL', 'BF% INB', 'B', 'T', 'SC', 'A', 'TOT', 'BF% KAL', 'BB (KG)', 'LBM', 'FM', 'EX. CAL', 'PRES. ENERG', 'DAY CAL']],
     body: tableData,
     headStyles: { 
       fillColor: [51, 65, 85], // slate-700
       textColor: [255, 255, 255],
-      fontSize: 8,
+      fontSize: 6,
       fontStyle: 'bold',
       halign: 'center'
     },
     bodyStyles: {
-      fontSize: 8,
+      fontSize: 6,
       halign: 'center'
     },
     columnStyles: {
@@ -144,7 +149,8 @@ export const generateAssessmentPDF = (
     theme: 'grid',
     styles: {
       lineColor: [226, 232, 240],
-      lineWidth: 0.1
+      lineWidth: 0.1,
+      cellPadding: 2
     }
   });
   
@@ -252,7 +258,10 @@ export const generateBulkAssessmentPDF = (
       `${entry.bf_caliper}%`,
       `${entry.weight} kg`,
       `${entry.lbm} kg`,
-      `${entry.fm} kg`
+      `${entry.fm} kg`,
+      entry.exercise_calories || '-',
+      entry.present_energy || '-',
+      entry.daily_calories || '-'
     ]);
 
     // Add Summary Rows if provided
@@ -265,7 +274,8 @@ export const generateBulkAssessmentPDF = (
         { content: `${diffUpdate.bfCaliper.value}%`, styles: { fontStyle: 'bold', textColor: diffUpdate.bfCaliper.isNegative ? [5, 150, 105] : [225, 29, 72] } },
         { content: diffUpdate.weight.value, styles: { fontStyle: 'bold', textColor: diffUpdate.weight.isNegative ? [5, 150, 105] : [225, 29, 72] } },
         { content: diffUpdate.lbm.value, styles: { fontStyle: 'bold', textColor: diffUpdate.lbm.isPositive ? [5, 150, 105] : [225, 29, 72] } },
-        { content: diffUpdate.fm.value, styles: { fontStyle: 'bold', textColor: diffUpdate.fm.isNegative ? [5, 150, 105] : [225, 29, 72] } }
+        { content: diffUpdate.fm.value, styles: { fontStyle: 'bold', textColor: diffUpdate.fm.isNegative ? [5, 150, 105] : [225, 29, 72] } },
+        '-', '-', '-'
       ] as any);
     }
 
@@ -278,23 +288,24 @@ export const generateBulkAssessmentPDF = (
         { content: `${diffGlobal.bfCaliper.value}%`, styles: { fontStyle: 'bold', textColor: diffGlobal.bfCaliper.isNegative ? [5, 150, 105] : [225, 29, 72] } },
         { content: diffGlobal.weight.value, styles: { fontStyle: 'bold', textColor: diffGlobal.weight.isNegative ? [5, 150, 105] : [225, 29, 72] } },
         { content: diffGlobal.lbm.value, styles: { fontStyle: 'bold', textColor: diffGlobal.lbm.isPositive ? [5, 150, 105] : [225, 29, 72] } },
-        { content: diffGlobal.fm.value, styles: { fontStyle: 'bold', textColor: diffGlobal.fm.isNegative ? [5, 150, 105] : [225, 29, 72] } }
+        { content: diffGlobal.fm.value, styles: { fontStyle: 'bold', textColor: diffGlobal.fm.isNegative ? [5, 150, 105] : [225, 29, 72] } },
+        '-', '-', '-'
       ] as any);
     }
     
     autoTable(doc, {
       startY: tableSpace,
-      head: [['TANGGAL', 'BF% INB', 'B', 'T', 'SC', 'A', 'TOT', 'BF% CAL', 'BB (KG)', 'LBM', 'FM']],
+      head: [['TANGGAL', 'BF% INB', 'B', 'T', 'SC', 'A', 'TOT', 'BF% KAL', 'BB (KG)', 'LBM', 'FM', 'EX. CAL', 'PRES. ENERG', 'DAY CAL']],
       body: tableData,
       headStyles: { 
         fillColor: [51, 65, 85], // slate-700
         textColor: [255, 255, 255],
-        fontSize: 8,
+        fontSize: 6,
         fontStyle: 'bold',
         halign: 'center'
       },
       bodyStyles: {
-        fontSize: 8,
+        fontSize: 6,
         halign: 'center'
       },
       columnStyles: {
@@ -305,7 +316,8 @@ export const generateBulkAssessmentPDF = (
       theme: 'grid',
       styles: {
         lineColor: [226, 232, 240],
-        lineWidth: 0.1
+        lineWidth: 0.1,
+        cellPadding: 2
       }
     });
 

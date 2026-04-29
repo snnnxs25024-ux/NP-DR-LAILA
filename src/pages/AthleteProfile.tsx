@@ -424,17 +424,31 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
   };
 
   const handleExport = () => {
-    const exportData = [{
-      Nama: athlete.name,
-      Divisi: athlete.category_name,
-      Status: athlete.status,
-      Berat: athlete.weight,
-      TargetBerat: athlete.target_weight,
-      Tinggi: athlete.height,
-      Umur: athlete.age,
-      CekTerakhir: '4j lalu'
-    }];
-    downloadCSV(exportData, `Laporan_Atlet_${athlete.name.replace(/\s+/g, '_')}`);
+    if (!athlete || !athlete.assessment_history || athlete.assessment_history.length === 0) {
+      alert('Tidak ada data asesmen untuk diexport.');
+      return;
+    }
+
+    const exportData = athlete.assessment_history.map(entry => ({
+      'Nama Atlet': athlete.name,
+      'Kategori Divisi': athlete.category_name || '-',
+      'Tanggal Asesmen': entry.date.split('-').reverse().join('-'),
+      'BF% INB': `${entry.bf_in_body}%`,
+      'Bisep (B)': entry.bicep,
+      'Trisep (T)': entry.tricep,
+      'Subscapula (SC)': entry.subscapula,
+      'Abdominal (A)': entry.abdominal,
+      'Total (TOT)': entry.total,
+      'BF% Caliper': `${entry.bf_caliper}%`,
+      'Berat Badan (BB) kg': entry.weight,
+      'LBM': entry.lbm,
+      'FM': entry.fm,
+      'Exercise Calories': entry.exercise_calories || '-',
+      'Present Energy': entry.present_energy || '-',
+      'Daily Calories': entry.daily_calories || '-'
+    }));
+
+    downloadCSV(exportData, `Data_Asesmen_${athlete.name.replace(/\s+/g, '_')}`);
   };
 
   const handleEditProfileSave = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -800,19 +814,19 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200"
+            className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]"
           >
-            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="p-4 md:p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
               <div>
-                <h3 className="text-xl font-black text-slate-900 tracking-tight">Input Asesmen Berkala</h3>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Input data untuk {athlete.name}</p>
+                <h3 className="text-lg md:text-xl font-black text-slate-900 tracking-tight">Input Asesmen Berkala</h3>
+                <p className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Input data untuk {athlete.name}</p>
               </div>
               <button onClick={() => setIsInputModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-xl transition-colors">
                 <X className="w-5 h-5 text-slate-400" />
               </button>
             </div>
             
-            <form onSubmit={handleUpdateData} className="p-8 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+            <form onSubmit={handleUpdateData} className="p-4 md:p-8 space-y-6 md:space-y-8 overflow-y-auto custom-scrollbar flex-1">
               {/* Seksi Tanggal & Info Dasar */}
               <div className="space-y-4">
                 <h4 className="text-[10px] font-black text-brand-red uppercase tracking-[0.2em]">Informasi Dasar</h4>
@@ -851,7 +865,7 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
               {/* Seksi Kaliper */}
               <div className="space-y-4">
                 <h4 className="text-[10px] font-black text-brand-red uppercase tracking-[0.2em]">Data Kaliper (mm)</h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-slate-500 uppercase">Bisep (B)</label>
                     <input name="bicep" type="number" step="any" defaultValue={3} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
@@ -890,12 +904,12 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                 </div>
               </div>
 
-              <div className="pt-4 flex gap-3">
-                <button type="button" onClick={() => setIsInputModalOpen(false)} className="flex-1 px-6 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-black uppercase tracking-widest transition-all">
+              <div className="pt-4 flex gap-3 pb-4">
+                <button type="button" onClick={() => setIsInputModalOpen(false)} className="flex-1 px-4 md:px-6 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] md:text-xs font-black uppercase tracking-widest transition-all">
                   Batal
                 </button>
-                <button type="submit" className="flex-1 px-6 py-3 rounded-xl bg-brand-red hover:bg-brand-red-hover text-white text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-brand-red/20">
-                  Simpan Perubahan
+                <button type="submit" className="flex-1 px-4 md:px-6 py-3 rounded-xl bg-brand-red hover:bg-brand-red-hover text-white text-[10px] md:text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-brand-red/20">
+                  Simpan
                 </button>
               </div>
             </form>
@@ -958,19 +972,19 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200"
+              className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]"
             >
-              <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="p-4 md:p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
                 <div>
-                  <h3 className="text-xl font-black text-slate-900 tracking-tight">Edit Asesmen Fisik</h3>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Update data untuk {athlete.name}</p>
+                  <h3 className="text-lg md:text-xl font-black text-slate-900 tracking-tight">Edit Asesmen</h3>
+                  <p className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Update data {athlete.name}</p>
                 </div>
                 <button onClick={() => setIsEditAssessmentModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-xl transition-colors">
                   <X className="w-5 h-5 text-slate-400" />
                 </button>
               </div>
               
-              <form onSubmit={handleEditAssessmentSave} className="p-8 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+              <form onSubmit={handleEditAssessmentSave} className="p-4 md:p-8 space-y-6 md:space-y-8 overflow-y-auto custom-scrollbar flex-1">
                 <div className="space-y-4">
                   <h4 className="text-[10px] font-black text-brand-red uppercase tracking-[0.2em]">Informasi Dasar</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1006,7 +1020,7 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
 
                 <div className="space-y-4">
                   <h4 className="text-[10px] font-black text-brand-red uppercase tracking-[0.2em]">Data Kaliper (mm)</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-slate-500 uppercase">Bisep (B)</label>
                       <input name="bicep" type="number" step="any" defaultValue={editingAssessment.bicep} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
@@ -1044,12 +1058,12 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                   </div>
                 </div>
 
-                <div className="pt-4 flex gap-3">
-                  <button type="button" onClick={() => setIsEditAssessmentModalOpen(false)} className="flex-1 px-6 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-black uppercase tracking-widest transition-all">
+                <div className="pt-4 flex gap-3 pb-4">
+                  <button type="button" onClick={() => setIsEditAssessmentModalOpen(false)} className="flex-1 px-4 md:px-6 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] md:text-xs font-black uppercase tracking-widest transition-all">
                     Batal
                   </button>
-                  <button type="submit" className="flex-1 px-6 py-3 rounded-xl bg-brand-red hover:bg-brand-red-hover text-white text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-brand-red/20">
-                    Simpan Perubahan
+                  <button type="submit" className="flex-1 px-4 md:px-6 py-3 rounded-xl bg-brand-red hover:bg-brand-red-hover text-white text-[10px] md:text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-brand-red/20">
+                    Simpan
                   </button>
                 </div>
               </form>
@@ -1064,20 +1078,20 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]"
+            className="bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]"
           >
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+            <div className="p-4 md:p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
               <div>
-                <h3 className="text-xl font-black text-slate-900 tracking-tight">Edit Profil</h3>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Perbarui data untuk {athlete.name}</p>
+                <h3 className="text-lg md:text-xl font-black text-slate-900 tracking-tight">Edit Profil</h3>
+                <p className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Perbarui data {athlete.name}</p>
               </div>
               <button onClick={() => setIsEditProfileModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-xl transition-colors">
                 <X className="w-5 h-5 text-slate-400" />
               </button>
             </div>
             
-            <form onSubmit={handleEditProfileSave} className="p-6 overflow-y-auto custom-scrollbar flex-1">
-              <div className="space-y-8">
+            <form onSubmit={handleEditProfileSave} className="p-4 md:p-6 overflow-y-auto custom-scrollbar flex-1">
+              <div className="space-y-6 md:space-y-8">
                 {/* Info Dasar */}
                 <div className="space-y-4">
                   <h4 className="text-[10px] font-black text-brand-red uppercase tracking-[0.2em]">Informasi Dasar</h4>
@@ -1143,7 +1157,7 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                       <label className="text-[10px] font-bold text-brand-red uppercase">Berat Badan Saat Ini (kg)</label>
                       <input name="weight" type="number" step="any" defaultValue={athlete.weight} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
                     </div>
-                    <div className="space-y-1.5 flex gap-2">
+                    <div className="space-y-1.5 flex flex-col md:flex-row gap-2 md:gap-4">
                       <div className="flex-1 space-y-1.5">
                         <label className="text-[10px] font-bold text-brand-red uppercase">Body Fat (Kaliper) %</label>
                         <input name="bf_caliper" type="number" step="any" defaultValue={athlete.bf_caliper} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all" />
@@ -1217,11 +1231,11 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
 
               </div>
 
-              <div className="pt-8 flex gap-3 border-t border-slate-100 mt-8">
-                <button type="button" onClick={() => setIsEditProfileModalOpen(false)} className="flex-1 px-6 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-black uppercase tracking-widest transition-all">
+              <div className="pt-6 flex gap-3 border-t border-slate-100 mt-6 pb-2">
+                <button type="button" onClick={() => setIsEditProfileModalOpen(false)} className="flex-1 px-4 md:px-6 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] md:text-xs font-black uppercase tracking-widest transition-all">
                   Batal
                 </button>
-                <button type="submit" className="flex-1 px-6 py-3 rounded-xl bg-brand-red hover:bg-brand-red-hover text-white text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-brand-red/20">
+                <button type="submit" className="flex-1 px-4 md:px-6 py-3 rounded-xl bg-brand-red hover:bg-brand-red-hover text-white text-[10px] md:text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-brand-red/20">
                   Simpan Profil
                 </button>
               </div>
@@ -1740,7 +1754,7 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                       <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">SC</th>
                       <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">A</th>
                       <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">TOT</th>
-                      <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">BF% Cal</th>
+                      <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">BF% Kal</th>
                       <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">BB (kg)</th>
                       <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">LBM</th>
                       <th className="px-4 py-5 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">FM</th>
@@ -1774,15 +1788,15 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                                 setEditingAssessment(entry);
                                 setIsEditAssessmentModalOpen(true);
                               }}
-                              className="p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:bg-blue-100 hover:text-blue-600 transition-all"
+                              className="p-2 md:p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:bg-blue-100 hover:text-blue-600 transition-all active:scale-95"
                             >
-                              <Edit2 className="w-3.5 h-3.5" />
+                              <Edit2 className="w-4 h-4 md:w-3.5 md:h-3.5" />
                             </button>
                             <button 
                               onClick={() => entry.id && handleDeleteAssessment(entry.id)}
-                              className="p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:bg-red-100 hover:text-red-600 transition-all"
+                              className="p-2 md:p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:bg-red-100 hover:text-red-600 transition-all active:scale-95"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 className="w-4 h-4 md:w-3.5 md:h-3.5" />
                             </button>
                           </div>
                         </td>
@@ -1988,7 +2002,7 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                 <X className="w-5 h-5 text-slate-400" />
               </button>
             </div>
-            <form onSubmit={handleSaveNote} className="p-8 space-y-6">
+            <form onSubmit={handleSaveNote} className="p-4 md:p-8 space-y-6 overflow-y-auto custom-scrollbar flex-1">
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Judul</label>
                 <input name="title" type="text" defaultValue={editingNote?.title} required placeholder="Contoh: Fokus Power" className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3.5 text-sm font-bold focus:border-slate-900 outline-none transition-all" />
@@ -2027,7 +2041,7 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
                 <X className="w-5 h-5 text-slate-400" />
               </button>
             </div>
-            <form onSubmit={handleSaveInjury} className="p-8 space-y-6">
+            <form onSubmit={handleSaveInjury} className="p-4 md:p-8 space-y-6 overflow-y-auto custom-scrollbar flex-1">
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Jenis Cedera</label>
                 <input name="type" type="text" defaultValue={editingInjury?.type} required placeholder="Contoh: Strain Hamstring" className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-3.5 text-sm font-bold focus:border-brand-red outline-none transition-all" />

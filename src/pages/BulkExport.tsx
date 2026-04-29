@@ -204,10 +204,13 @@ export default function BulkExport() {
           'SC': entry.subscapula || 0,
           'A': entry.abdominal || 0,
           'TOT': entry.total || 0,
-          'BF% CAL': entry.bf_caliper || 0,
+          'BF% KAL': entry.bf_caliper || 0,
           'BB (KG)': entry.weight || 0,
           'LBM': entry.lbm || 0,
-          'FM': entry.fm || 0
+          'FM': entry.fm || 0,
+          'EX. CALORIES': entry.exercise_calories || '-',
+          'PRESENT ENERG': entry.present_energy || '-',
+          'DAILY CALORIES': entry.daily_calories || '-'
         });
       });
     });
@@ -219,7 +222,7 @@ export default function BulkExport() {
       {wch: 15}, // Divisi
       {wch: 25}, // Nama
       {wch: 12}, // Tanggal
-      {wch: 10}, {wch: 5}, {wch: 5}, {wch: 5}, {wch: 5}, {wch: 8}, {wch: 10}, {wch: 10}, {wch: 10}, {wch: 10}
+      {wch: 10}, {wch: 5}, {wch: 5}, {wch: 5}, {wch: 5}, {wch: 8}, {wch: 10}, {wch: 10}, {wch: 10}, {wch: 10}, {wch: 15}, {wch: 15}, {wch: 15}
     ];
     ws['!cols'] = wscols;
 
