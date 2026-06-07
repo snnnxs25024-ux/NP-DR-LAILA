@@ -1,4 +1,4 @@
-import { Users, LogOut, ChevronRight, Menu, ChevronsLeft, LayoutDashboard, Activity, ClipboardList, SendToBack } from 'lucide-react';
+import { Users, LogOut, ChevronRight, Menu, ChevronsLeft, Activity, ClipboardList, SendToBack } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState } from 'react';
@@ -13,7 +13,6 @@ export function Sidebar({ currentView, setCurrentView, onLogout }: SidebarProps)
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const navItems = [
-    { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
     { id: 'directory', label: 'Atlet', icon: Users },
     { id: 'assessments', label: 'Assesmen', icon: Activity },
     { id: 'clinical-recap', label: 'Rekap', icon: ClipboardList },

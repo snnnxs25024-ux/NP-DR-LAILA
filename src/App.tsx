@@ -6,10 +6,8 @@
 import { useState, lazy, Suspense } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Login } from './pages/Login';
-import { Loader2 } from 'lucide-react';
 
 // Lazy load pages for better performance (Code Splitting)
-const Dashboard = lazy(() => import('./pages/Dashboard').then(module => ({ default: module.Dashboard })));
 const AthleteDirectory = lazy(() => import('./pages/AthleteDirectory').then(module => ({ default: module.AthleteDirectory })));
 const AthleteProfile = lazy(() => import('./pages/AthleteProfile').then(module => ({ default: module.AthleteProfile })));
 const Assessments = lazy(() => import('./pages/Assessments').then(module => ({ default: module.Assessments })));
@@ -31,7 +29,7 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem('np_auth') === 'true';
   });
-  const [currentView, setCurrentView] = useState('dashboard');
+  const [currentView, setCurrentView] = useState('directory');
   const [selectedAthleteId, setSelectedAthleteId] = useState<string | null>(null);
 
   const handleLogin = () => {
@@ -42,7 +40,7 @@ export default function App() {
   const handleLogout = () => {
     setIsAuthenticated(false);
     localStorage.removeItem('np_auth');
-    setCurrentView('dashboard');
+    setCurrentView('directory');
   };
 
   const handleSelectAthlete = (id: string) => {
@@ -57,8 +55,6 @@ export default function App() {
 
   const renderContent = () => {
     switch (currentView) {
-      case 'dashboard':
-        return <Dashboard />;
       case 'directory':
         return <AthleteDirectory onSelectAthlete={handleSelectAthlete} />;
       case 'assessments':
@@ -73,7 +69,7 @@ export default function App() {
         }
         return <AthleteDirectory onSelectAthlete={handleSelectAthlete} />;
       default:
-        return <Dashboard />;
+        return <AthleteDirectory onSelectAthlete={handleSelectAthlete} />;
     }
   };
 

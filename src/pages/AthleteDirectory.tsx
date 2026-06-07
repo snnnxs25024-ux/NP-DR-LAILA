@@ -534,7 +534,7 @@ export function AthleteDirectory({ onSelectAthlete }: AthleteDirectoryProps) {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-black text-slate-900 uppercase tracking-tight">Direktori Atlet</h1>
-          <p className="text-[10px] md:text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">Manajemen profil dan status atlet</p>
+          <p className="text-[10px] md:text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">MANAJEMEN PROFIL ATLET PT DJARUM</p>
         </div>
         
         <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
