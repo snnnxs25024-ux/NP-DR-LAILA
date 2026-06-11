@@ -111,9 +111,9 @@ export function AthleteProfile({ athleteId, onBack }: AthleteProfileProps) {
     } else {
       // Fetch related data
       const [assessmentsRes, notesRes, injuriesRes] = await Promise.all([
-        supabase.from('assessments').select('*').eq('athlete_id', athleteId).order('date', { ascending: false }),
-        supabase.from('notes').select('*').eq('athlete_id', athleteId).order('date', { ascending: false }),
-        supabase.from('injuries').select('*').eq('athlete_id', athleteId).order('date', { ascending: false })
+        supabase.from('assessments').select('*').eq('athlete_id', athleteId).order('created_at', { ascending: false }),
+        supabase.from('notes').select('*').eq('athlete_id', athleteId).order('created_at', { ascending: false }),
+        supabase.from('injuries').select('*').eq('athlete_id', athleteId).order('created_at', { ascending: false })
       ]);
 
       const fullAthlete: Athlete = {

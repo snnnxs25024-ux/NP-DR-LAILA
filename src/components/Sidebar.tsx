@@ -14,9 +14,9 @@ export function Sidebar({ currentView, setCurrentView, onLogout }: SidebarProps)
 
   const navItems = [
     { id: 'directory', label: 'Atlet', icon: Users },
-    { id: 'assessments', label: 'Assesmen', icon: Activity },
+    { id: 'assessments', label: 'Assesment', icon: Activity },
     { id: 'clinical-recap', label: 'Rekap', icon: ClipboardList },
-    { id: 'bulk-export', label: 'Export', icon: SendToBack },
+    { id: 'bulk-export', label: 'Download', icon: SendToBack },
   ];
 
   return (

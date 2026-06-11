@@ -40,14 +40,19 @@ export function AthleteDirectory({ onSelectAthlete }: AthleteDirectoryProps) {
     if (error) {
       console.error('Error fetching athletes:', error);
     } else {
-      const mappedData = data.map((a: any) => ({
-        ...a,
-        category_name: (Array.isArray(a.categories) 
-          ? a.categories[0]?.name 
-          : a.categories?.name) || 'Unknown',
-        // Already sorted server-side, but keep as array if needed
-        assessment_history: a.assessment_history || []
-      }));
+      const mappedData = data.map((a: any) => {
+        const sortedHistory = (a.assessment_history || []).sort((x: any, y: any) => {
+          return new Date(y.created_at || y.date).getTime() - new Date(x.created_at || x.date).getTime();
+        });
+
+        return {
+          ...a,
+          category_name: (Array.isArray(a.categories) 
+            ? a.categories[0]?.name 
+            : a.categories?.name) || 'Unknown',
+          assessment_history: sortedHistory
+        };
+      });
       setAthletesList(mappedData as Athlete[]);
     }
   };

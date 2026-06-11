@@ -26,7 +26,6 @@ export function ClinicalRecap() {
   const { categories } = useCategories();
   const [selectedCategory, setSelectedCategory] = useState<string | 'All'>('All');
   const [searchTerm, setSearchTerm] = useState('');
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success'>('idle');
   const [isLoading, setIsLoading] = useState(true);
 
   // Date Range Filters
@@ -102,8 +101,8 @@ export function ClinicalRecap() {
       const currentWeight = latestAssessment?.weight || athlete.weight || 0;
       const currentBF = latestAssessment?.bf_caliper || athlete.bf_in_body || 0;
       
-      const isWeightAchieved = currentWeight <= athlete.target_weight;
-      const isBFAchieved = currentBF <= athlete.target_body_fat;
+      const isWeightAchieved = Number(currentWeight) === Number(athlete.target_weight);
+      const isBFAchieved = Number(currentBF) === Number(athlete.target_body_fat);
       const conclusion = getConclusion(isWeightAchieved, isBFAchieved);
 
       const categoryName = athlete.category_name || 'Tanpa Kategori';
@@ -158,111 +157,6 @@ export function ClinicalRecap() {
     XLSX.writeFile(wb, `Rekapitulasi_Klinis_${startDate}_sd_${endDate}.xlsx`);
   };
 
-  const handleUpdateAssessment = async (athleteId: string, field: keyof AssessmentEntry, value: string) => {
-    // Legacy support kept intact (though conceptually we only modify the latest entry).
-    // ...
-    const numValue = parseFloat(value) || 0;
-    // ... remainder of update code
-    
-    // Update local state first for immediate UI response
-    setAthletesData(prev => prev.map(athlete => {
-      if (athlete.id === athleteId) {
-        const history = [...(athlete.assessment_history || [])];
-        if (history.length > 0) {
-          history[0] = { ...history[0], [field]: numValue };
-        } else {
-          // Create first entry if none exists
-          const newEntry: AssessmentEntry = {
-            date: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' }).toUpperCase(),
-            weight: field === 'weight' ? numValue : (athlete.weight || 0),
-            bf_caliper: field === 'bf_caliper' ? numValue : (athlete.bf_in_body || 0),
-            bf_in_body: athlete.bf_in_body || 0,
-            bicep: 0,
-            tricep: 0,
-            subscapula: 0,
-            abdominal: 0,
-            total: 0,
-            lbm: 0,
-            fm: 0
-          };
-          history.push(newEntry);
-        }
-        return { ...athlete, assessment_history: history };
-      }
-      return athlete;
-    }));
-
-    // Auto-save to Supabase
-    setSaveStatus('saving');
-    try {
-      const athleteToUpdate = athletesData.find(a => a.id === athleteId);
-      if (athleteToUpdate) {
-        const history = [...(athleteToUpdate.assessment_history || [])];
-        if (history.length > 0) {
-          history[0] = { ...history[0], [field]: numValue };
-        }
-        
-        const { error } = await supabase
-          .from('athletes')
-          .update({ assessment_history: history })
-          .eq('id', athleteId);
-          
-        if (error) throw error;
-        setSaveStatus('success');
-        setTimeout(() => setSaveStatus('idle'), 2000);
-      }
-    } catch (error) {
-      console.error('Error auto-saving:', error);
-      setSaveStatus('idle');
-    }
-  };
-
-  const handleAddAssessment = (athleteId: string) => {
-    setAthletesData(prev => prev.map(athlete => {
-      if (athlete.id === athleteId) {
-        const history = athlete.assessment_history || [];
-        const latest = history[0] || athlete;
-        const newEntry: AssessmentEntry = {
-          date: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' }).toUpperCase(),
-          weight: (latest as any).weight || athlete.weight || 0,
-          bf_caliper: (latest as any).bf_caliper || (latest as any).bfCaliper || 0,
-          bf_in_body: (latest as any).bf_in_body || (latest as any).bfInBody || 0,
-          bicep: (latest as any).bicep || 0,
-          tricep: (latest as any).tricep || 0,
-          subscapula: (latest as any).subscapula || 0,
-          abdominal: (latest as any).abdominal || 0,
-          total: (latest as any).total || 0,
-          lbm: (latest as any).lbm || 0,
-          fm: (latest as any).fm || 0
-        };
-        return { ...athlete, assessment_history: [newEntry, ...history] };
-      }
-      return athlete;
-    }));
-    
-    // Show feedback
-    setSaveStatus('success');
-    setTimeout(() => setSaveStatus('idle'), 2000);
-  };
-
-  const handleDeleteLatest = (athleteId: string) => {
-    setAthletesData(prev => prev.map(athlete => {
-      if (athlete.id === athleteId && (athlete.assessment_history?.length || 0) > 0) {
-        return { ...athlete, assessment_history: athlete.assessment_history?.slice(1) };
-      }
-      return athlete;
-    }));
-  };
-
-  const handleSaveAll = () => {
-    setSaveStatus('saving');
-    // Simulate API call
-    setTimeout(() => {
-      setSaveStatus('success');
-      setTimeout(() => setSaveStatus('idle'), 3000);
-    }, 1000);
-  };
-
   const handlePrint = () => {
     window.print();
   };
@@ -272,7 +166,7 @@ export function ClinicalRecap() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 no-print">
         <div>
-          <h1 className="text-2xl md:text-3xl font-black text-slate-900 uppercase tracking-tight">Rekapitulasi Klinis</h1>
+          <h1 className="text-2xl md:text-3xl font-black text-slate-900 uppercase tracking-tight">Rekap</h1>
           <p className="text-[10px] md:text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">Manajemen Data & Analisis Pencapaian Target</p>
         </div>
         
@@ -283,21 +177,6 @@ export function ClinicalRecap() {
           >
             <Download className="w-4 h-4" />
             Excel
-          </button>
-          <button 
-            onClick={handleSaveAll}
-            disabled={saveStatus === 'saving'}
-            className={cn(
-              "flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-lg",
-              saveStatus === 'saving' ? "bg-slate-100 text-slate-400" : "bg-slate-900 text-white hover:bg-slate-800 shadow-slate-900/20"
-            )}
-          >
-            {saveStatus === 'saving' ? (
-              <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
-            ) : (
-              <Save className="w-4 h-4" />
-            )}
-            Simpan Perubahan
           </button>
           <button 
             onClick={handlePrint}
@@ -370,7 +249,6 @@ export function ClinicalRecap() {
                 <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-800">TARGET BF</th>
                 <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-800">STATUS BF</th>
                 <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-800 min-w-[200px]">KESIMPULAN & ARAHAN</th>
-                <th className="p-4 border border-blue-100 text-center font-black uppercase text-slate-800 no-print">AKSI</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -379,8 +257,8 @@ export function ClinicalRecap() {
                 const currentWeight = latestAssessment?.weight || athlete.weight || 0;
                 const currentBF = latestAssessment?.bf_caliper || athlete.bf_in_body || 0;
                 
-                const isWeightAchieved = currentWeight <= athlete.target_weight;
-                const isBFAchieved = currentBF <= athlete.target_body_fat;
+                const isWeightAchieved = Number(currentWeight) === Number(athlete.target_weight);
+                const isBFAchieved = Number(currentBF) === Number(athlete.target_body_fat);
                 const conclusion = getConclusion(isWeightAchieved, isBFAchieved);
 
                 return (
@@ -395,13 +273,8 @@ export function ClinicalRecap() {
                       </div>
                     </td>
                     <td className="p-4 border border-slate-100 text-center font-bold text-slate-800">{athlete.height}</td>
-                    <td className="p-4 border border-slate-100 text-center">
-                      <input 
-                        type="number"
-                        value={currentWeight || ''}
-                        onChange={(e) => handleUpdateAssessment(athlete.id, 'weight', e.target.value)}
-                        className="w-12 bg-transparent border-none text-center font-bold text-slate-900 focus:ring-0 outline-none"
-                      />
+                    <td className="p-4 border border-slate-100 text-center font-bold text-slate-900">
+                      {currentWeight}
                     </td>
                     <td className="p-4 border border-slate-100 text-center font-bold text-blue-700 bg-blue-50/30">
                       {athlete.target_weight}
@@ -414,13 +287,8 @@ export function ClinicalRecap() {
                         {isWeightAchieved ? 'TERCAPAI' : 'BELUM'}
                       </span>
                     </td>
-                    <td className="p-4 border border-slate-100 text-center">
-                      <input 
-                        type="number"
-                        value={currentBF || ''}
-                        onChange={(e) => handleUpdateAssessment(athlete.id, 'bf_caliper', e.target.value)}
-                        className="w-10 bg-transparent border-none text-center font-bold text-rose-800 focus:ring-0 outline-none"
-                      />
+                    <td className="p-4 border border-slate-100 text-center font-bold text-rose-800">
+                      {currentBF}
                     </td>
                     <td className="p-4 border border-slate-100 text-center font-bold text-slate-800 bg-rose-50/5">
                       {athlete.target_body_fat}%
@@ -438,30 +306,6 @@ export function ClinicalRecap() {
                         {conclusion.text}
                       </div>
                     </td>
-                    <td className="p-4 border border-slate-100 text-center no-print">
-                      <div className="flex items-center justify-center gap-1">
-                        <button 
-                          onClick={() => handleAddAssessment(athlete.id)}
-                          title="Tambah Asesmen"
-                          className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteLatest(athlete.id)}
-                          disabled={(athlete.assessment_history?.length || 0) === 0}
-                          title="Hapus Terakhir"
-                          className={cn(
-                            "p-1.5 rounded-lg transition-all",
-                            (athlete.assessment_history?.length || 0) === 0 
-                              ? "bg-slate-50 text-slate-200 cursor-not-allowed" 
-                              : "bg-rose-50 text-brand-red hover:bg-brand-red hover:text-white"
-                          )}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </td>
                   </tr>
                 );
               })}
@@ -469,24 +313,6 @@ export function ClinicalRecap() {
           </table>
         </div>
       </div>
-
-      {/* Notifications */}
-      <AnimatePresence>
-        {saveStatus === 'success' && (
-          <motion.div 
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-8 right-8 bg-emerald-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 z-[200]"
-          >
-            <CheckCircle2 className="w-6 h-6" />
-            <div>
-              <div className="text-sm font-black uppercase tracking-tight">Berhasil Diperbarui</div>
-              <div className="text-[10px] font-bold opacity-80 uppercase tracking-widest">Data klinis atlet telah disinkronkan</div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
