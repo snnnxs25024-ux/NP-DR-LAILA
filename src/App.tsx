@@ -4,6 +4,7 @@
  */
 
 import { useState, lazy, Suspense } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { Sidebar } from './components/Sidebar';
 import { Login } from './pages/Login';
 
